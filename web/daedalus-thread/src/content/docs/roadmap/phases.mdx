@@ -1,0 +1,96 @@
+---
+title: Project Phases & Roadmap
+description: Comprehensive breakdown of the 5-phase development roadmap for Daedalus Thread.
+---
+
+import PhaseRail from '../../../components/PhaseRail.astro';
+
+Daedalus Thread follows a "crawl, walk, run" engineering philosophy. Each phase introduces additional system complexity, building upon prior accomplishments to produce a demonstrable cyber-physical output at every stage.
+
+<PhaseRail>
+
+<div class="phase-card" id="phase-1">
+  <div class="phase-node">01</div>
+
+## Phase 1: Aerodynamic Digital Thread
+
+De-risks and establishes the baseline SysML, Python, CAD, and CAM pipeline necessary for a requirements-driven aerial platform. It utilizes a COTS hobby-grade aircraft base while replacing the wings with dynamic, mission-driven custom geometry.
+
+* **Timeline:** 3 Months
+* **Input Parameters:** Cruise airspeed target, stall speed limit, payload mass, wingspan upper bound, target flight duration.
+* **Middleware Outputs:** Root chord, tip chord, sweep angle, dihedral angle, airfoil geometry.
+* **Model Shop Activation:** Additive manufacturing (LW-PLA skins, PETG root ribs), pultruded carbon fiber spar cutting, and wing assembly.
+* **Phase Milestones:**
+  * CAD generation of new wing geometry completed in < 1 hour following parameter adjustments.
+  * Three separate wing designs physically fabricated and flight-validated.
+  * Digital thread pipeline fully documented and middleware published as open-source.
+
+</div>
+
+<div class="phase-card" id="phase-2">
+  <div class="phase-node">02</div>
+
+## Phase 2: Full Airframe Parametric Synthesis
+
+Expands geometry automation from wing-only structures to dynamic fuselage and empennage generation, alongside catalog-based battery selection.
+
+* **Timeline:** 3 Months
+* **Additional Inputs:** Flight duration, payload power draw, internal spatial volume, payload mass, longitudinal static margin constraints.
+* **Middleware Outputs:** Fuselage length and internal width, catalog battery selection, battery bay dimensions and offset, tail boom length, stabilizer span and chord.
+* **Model Shop Activation:** 3D optical metrology for twin validation, test fixturing for static balance, and multi-material printing (Tough PLA, TPU gaskets).
+* **Phase Milestones:**
+  * Automated airframe generation verified across two distinct endurance profiles (20 min & 45 min) with zero manual CAD alterations.
+  * Complete custom airframe fabricated, assembled, and flight-tested under manual line-of-sight control.
+
+</div>
+
+<div class="phase-card" id="phase-3">
+  <div class="phase-node">03</div>
+
+## Phase 3: Propulsion Sizing & Automated Flight
+
+Introduces catalog-selected propulsion hardware and a COTS open-source flight controller, expanding the thread to software configuration and autonomous navigation.
+
+* **Timeline:** 3 Months
+* **Additional Inputs:** Max climb rate, max airspeed, total all-up weight (AUW), waypoint mission profile, geofence/RTL limits.
+* **Middleware Outputs:** Motor catalog selection, propeller specification, ESC specification, autopilot mounting position, generated parameter configuration file, mission waypoint file.
+* **Model Shop Activation:** Electronics bench testing, harness soldering/crimping, and Hardware-In-The-Loop (HIL) bench verification.
+* **Phase Milestones:**
+  * Autopilot configuration file digitally generated and validated from middleware.
+  * Automated takeoff, multi-waypoint navigation, and failsafe RTL successfully executed.
+  * Verified live downlink of airspeed, groundspeed, voltage, and current telemetry.
+
+</div>
+
+<div class="phase-card" id="phase-4">
+  <div class="phase-node">04</div>
+
+## Phase 4: Mission Insights & Dashboarding
+
+Closes the loop between in-flight telemetry and model-driven calculations, deploying an outward-facing ground station dashboard for real-time mission metrics.
+
+* **Timeline:** 3 Months
+* **Telemetry Inputs:** Instantaneous voltage/current, cumulative energy, indicated/ground airspeed, headwind vector, distance to home, payload draw.
+* **Dashboard Outputs:** Live remaining endurance, mission trade-off analytics, calculated best-range speed, performance deltas vs. predictions.
+* **Model Shop Activation:** Wireless networking nodes, video wall integration, and subtractive machining for showcase display fixtures.
+* **Phase Milestones:**
+  * Live public flight demonstration with real-time telemetry streaming.
+  * Operational dashboard displaying real-time flight performance calculations.
+  * Comprehensive report published detailing software interoperability bottlenecks and digital thread execution.
+
+</div>
+
+<div class="phase-card" id="phase-5">
+  <div class="phase-node">05</div>
+
+## Phase 5: MOSA Modular Payload & Compute Integration
+
+Targets Modular Open Systems Approach (MOSA) physical and electrical compliance, establishing standardized interfaces to enable rapid sensor and compute adaptation.
+
+* **Key Focus:** Physical and electrical mounting standards for sub-5-minute payload swaps using common hand tools.
+* **Capabilities Enabled:** Field-swappable sensor bays, edge AI compute hosting for onboard vision, and autonomous flight control networking.
+* **Research Impact:** Delivers an open-source testbed for industry and defense partners to evaluate sensor integration and autonomy algorithms without developing custom airframes.
+
+</div>
+
+</PhaseRail>
