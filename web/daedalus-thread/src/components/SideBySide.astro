@@ -1,0 +1,36 @@
+---
+interface Props {
+	gap?: string;
+	minWidth?: string;
+}
+
+const { gap = '1rem', minWidth = '250px' } = Astro.props;
+---
+
+<div class="side-by-side-container" style={`display: grid; grid-template-columns: repeat(auto-fit, minmax(${minWidth}, 1fr)); gap: ${gap}; margin: 1.5rem 0; align-items: end;`}>
+	<slot />
+</div>
+
+<style>
+	.side-by-side-container :global(> div) {
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-end;
+		height: 100%;
+	}
+	.side-by-side-container :global(img) {
+		width: 100%;
+		height: auto;
+		border-radius: 0.5rem;
+		object-fit: cover;
+	}
+	.side-by-side-container :global(figure) {
+		margin: 0;
+	}
+	.side-by-side-container :global(p) {
+		margin-top: 0.5rem;
+		font-size: 0.85rem;
+		text-align: center;
+		opacity: 0.75;
+	}
+</style>

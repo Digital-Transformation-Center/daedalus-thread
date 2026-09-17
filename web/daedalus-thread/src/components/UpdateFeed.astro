@@ -1,0 +1,67 @@
+---
+import { getCollection, render } from 'astro:content';
+import { Badge } from '@astrojs/starlight/components';
+import { Image } from 'astro:assets';
+import SideBySide from './SideBySide.astro';
+
+const allDocs = await getCollection('docs');
+
+const updateEntries = allDocs.filter((doc) => {
+	return doc.id.startsWith('updates/entries/') && !doc.data.ignore;
+});
+
+// Sort newest first
+updateEntries.sort((a, b) => {
+	const dateA = a.data.date ? new Date(a.data.date).getTime() : 0;
+	const dateB = b.data.date ? new Date(b.data.date).getTime() : 0;
+	return dateB - dateA;
+});
+
+const renderedEntries = await Promise.all(
+	updateEntries.map(async (entry) => {
+		const { Content } = await render(entry);
+		const formattedDate = entry.data.date
+			? new Intl.DateTimeFormat('en-US', {
+					year: 'numeric',
+					month: 'long',
+					day: 'numeric',
+					timeZone: 'UTC',
+			  }).format(new Date(entry.data.date))
+			: '';
+
+		return {
+			entry,
+			Content,
+			formattedDate,
+		};
+	})
+);
+---
+
+<div style="margin-top: 1.5rem;">
+	{
+		renderedEntries.length === 0 ? (
+			<p>No updates published yet.</p>
+		) : (
+			renderedEntries.map(({ entry, Content, formattedDate }, index) => (
+				<div>
+					<div style="padding: 1.5rem 0;">
+						<div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+							{entry.data.badge && (
+								<Badge text={entry.data.badge} variant={entry.data.badgeVariant || 'note'} />
+							)}
+							{formattedDate && (
+								<span style="font-size: 0.85rem; font-family: monospace; opacity: 0.7;">
+									{formattedDate}
+								</span>
+							)}
+						</div>
+						<h3>{entry.data.title}</h3>
+						<Content components={{ SideBySide, Image, Badge }} />
+					</div>
+					{index < renderedEntries.length - 1 && <hr />}
+				</div>
+			))
+		)
+	}
+</div>

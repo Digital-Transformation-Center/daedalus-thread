@@ -1,0 +1,30 @@
+---
+title: "Project Kickoff"
+date: 2026-09-11
+badge: "Milestone"
+badgeVariant: "success"
+sidebar:
+  hidden: true
+---
+
+import { Image } from 'astro:assets';
+import SideBySide from '../../../../components/SideBySide.astro';
+import imageOne from './images/2026-09-17-freecad-a.png';
+import imageTwo from './images/2026-09-17-freecad-b.png';
+
+The Daedalus Thread implementation is underway. The project will first target a COTS, hobby-grade aircraft, making mission-driven aerodynamic modifications. Development will begin with open-source tools through the whole stack for accessibility.
+
+Following initial proof-of-concept generation, this phase will expand to include industry-standard proprietary tools through the stack to complete Phase 1. 
+
+Early FreeCAD integration demonstrates highly-dynamic wing designs, capable of adapting to completely different misison requirements. Different wing designs share modular electronic and physical interfaces, while dynamically adapting to aerodynamic requirements. 
+
+<SideBySide>
+  <div>
+    <Image src={imageOne} alt="" />
+    <p>Short wing; large sweep; large, high-leverage control surface.</p>
+  </div>
+  <div>
+    <Image src={imageTwo} alt="FreeCAD layout B" />
+    <p>Large wing; minimal sweep; smaller, low-leverage control surface.</p>
+  </div>
+</SideBySide>

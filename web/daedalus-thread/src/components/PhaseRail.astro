@@ -1,0 +1,127 @@
+---
+// src/components/PhaseRail.astro
+---
+
+<div class="phase-rail-container">
+  <div class="rail-track" id="railTrack"></div>
+  <div class="glow-line" id="glowLine"></div>
+  <slot />
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const container = document.querySelector('.phase-rail-container');
+    const railTrack = document.getElementById('railTrack');
+    const glowLine = document.getElementById('glowLine');
+    const nodes = document.querySelectorAll('.phase-node');
+
+    if (!container || !glowLine || !railTrack || nodes.length === 0) return;
+
+    function updateLineGeometryAndProgress() {
+      const containerRect = container.getBoundingClientRect();
+      const firstNode = nodes[0];
+      const lastNode = nodes[nodes.length - 1];
+      
+      const firstNodeRect = firstNode.getBoundingClientRect();
+      const lastNodeRect = lastNode.getBoundingClientRect();
+
+      // Calculate exact vertical centers of node 01 and node 05 relative to container
+      const startY = (firstNodeRect.top + firstNodeRect.height / 2) - containerRect.top;
+      const endY = (lastNodeRect.top + lastNodeRect.height / 2) - containerRect.top;
+      const totalLineHeight = endY - startY;
+
+      // Position static track precisely between node centers
+      railTrack.style.top = `${startY}px`;
+      railTrack.style.height = `${totalLineHeight}px`;
+
+      // Position glow line starting at circle 01 center
+      glowLine.style.top = `${startY}px`;
+
+      // Calculate scroll progress relative to viewport midpoint
+      const windowHeight = window.innerHeight;
+      const currentScrollCenter = windowHeight * 0.55 - containerRect.top;
+      
+      const progress = Math.min(
+        Math.max((currentScrollCenter - startY) / totalLineHeight, 0),
+        1
+      );
+
+      glowLine.style.height = `${progress * totalLineHeight}px`;
+
+      // Activate individual phase nodes as scroll reaches them
+      nodes.forEach((node) => {
+        const nodeRect = node.getBoundingClientRect();
+        if (nodeRect.top <= windowHeight * 0.6) {
+          node.classList.add('active');
+        } else {
+          node.classList.remove('active');
+        }
+      });
+    }
+
+    window.addEventListener('scroll', updateLineGeometryAndProgress, { passive: true });
+    window.addEventListener('resize', updateLineGeometryAndProgress, { passive: true });
+    updateLineGeometryAndProgress();
+  });
+</script>
+
+<style>
+  .phase-rail-container {
+    position: relative;
+    padding-left: 2.5rem;
+    margin: 2rem 0;
+  }
+
+  .rail-track {
+    position: absolute;
+    left: -1px;
+    width: 2px;
+    background: var(--sl-color-gray-5);
+  }
+
+  .glow-line {
+    position: absolute;
+    left: -1px;
+    width: 2px;
+    height: 0px;
+    background: linear-gradient(
+      to bottom,
+      var(--sl-color-accent),
+      var(--sl-color-accent-high)
+    );
+    box-shadow: 0 0 8px var(--sl-color-accent-high);
+    transition: height 0.1s linear;
+  }
+
+  :global(.phase-card) {
+    position: relative;
+    margin-bottom: 3.5rem;
+  }
+
+  :global(.phase-node) {
+    position: absolute;
+    left: -3.4rem;
+    top: 0.2rem;
+    width: 1.8rem;
+    height: 1.8rem;
+    border-radius: 50%;
+    background: var(--sl-color-bg);
+    border: 2px solid var(--sl-color-gray-4);
+    color: var(--sl-color-gray-3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    font-family: monospace;
+    transition: all 0.3s ease;
+    z-index: 2;
+  }
+
+  :global(.phase-node.active) {
+    border-color: var(--sl-color-accent-high);
+    background: var(--sl-color-accent-high);
+    color: var(--sl-color-text-invert);
+    box-shadow: 0 0 12px var(--sl-color-accent-high);
+  }
+</style>
