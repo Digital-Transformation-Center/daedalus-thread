@@ -1,4 +1,4 @@
-"""Airfoil parsing and geometric transformation helpers."""
+import math
 import os
 import FreeCAD as App
 import Part
@@ -36,8 +36,11 @@ def load_airfoil_points(dat_path):
 
     return points
 
-def create_profile_wire(raw_points, chord, offset_x, span_y, offset_z):
-    """Scales normalized airfoil points and transforms them to 3D space.
+def create_profile_wire(raw_points, chord, offset_x, span_y, offset_z, pitch_deg=0.0):
+    """Scales normalized airfoil points and transforms them to 3D space with pitch.
+    
+    Rotates points around the local aerodynamic quarter-chord (c/4) axis
+    so positive pitch angles raise the leading edge and increase angle of attack.
     
     Args:
         raw_points: List of normalized App.Vector(x, 0, z)
@@ -45,18 +48,39 @@ def create_profile_wire(raw_points, chord, offset_x, span_y, offset_z):
         offset_x: Leading edge X position (mm)
         span_y: Y position along the half-span (mm)
         offset_z: Leading edge Z position (mm)
+        pitch_deg: Aerodynamic incidence pitch in degrees (positive = nose up)
         
     Returns:
         Part.Wire: Closed wire of the airfoil cross-section.
     """
-    pts = [
-        App.Vector(
-            (p.x * chord) + offset_x,
-            span_y,
-            (p.z * chord) + offset_z
-        )
-        for p in raw_points
-    ]
+    pivot_x = (0.25 * chord) + offset_x
+    pivot_z = offset_z
+
+    if abs(pitch_deg) > 1e-6:
+        rad = math.radians(pitch_deg)
+        cos_a = math.cos(rad)
+        sin_a = math.sin(rad)
+
+        pts = []
+        for p in raw_points:
+            x_raw = (p.x * chord) + offset_x
+            z_raw = (p.z * chord) + offset_z
+            dx = x_raw - pivot_x
+            dz = z_raw - pivot_z
+            # Rotate in X-Z plane around c/4 pivot
+            x_rot = pivot_x + (dx * cos_a) + (dz * sin_a)
+            z_rot = pivot_z - (dx * sin_a) + (dz * cos_a)
+            pts.append(App.Vector(x_rot, span_y, z_rot))
+    else:
+        pts = [
+            App.Vector(
+                (p.x * chord) + offset_x,
+                span_y,
+                (p.z * chord) + offset_z
+            )
+            for p in raw_points
+        ]
+
     spline = Part.BSplineCurve()
     spline.interpolate(pts)
     return Part.Wire(spline.toShape())

@@ -1,3 +1,9 @@
+"""
+A script for generating airfoil geometry for 4-digit NACA airfoils.
+
+See https://en.wikipedia.org/wiki/NACA_airfoil
+"""
+
 import numpy as np
 
 def generate_naca4(m, p, t, num_points=100):

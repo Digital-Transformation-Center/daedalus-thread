@@ -17,6 +17,18 @@ package AirframeArchitecture {
         attribute tipChord : Real; // mm
         attribute sweepAngle : Real; // degrees
         attribute dihedralAngle : Real; // degrees
+        attribute pitchAngle : Real; // degrees wing incidence trim
+
+        // Aerodynamic parameters
+        attribute wingAreaM2 : Real; // m^2
+        attribute aspectRatio : Real;
+        attribute cruiseCL : Real;
+
+        // Mass and mission budget
+        attribute grossMassKg : Real;
+        attribute payloadMassKg : Real;
+        attribute batteryMassKg : Real;
+        attribute flightDurationMin : Real;
 
         // Linked aerodynamic profile
         part profile : AirfoilProfile;
@@ -25,13 +37,23 @@ package AirframeArchitecture {
         satisfy reconMissionReq;
     }
 
-    // System instance for your current aircraft configuration
+    // Baseline system instance
     part uavWing : WingAssembly {
         attribute :>> span = 1800.0; // 1.8m
         attribute :>> rootChord = 240.0; // 240mm
         attribute :>> tipChord = 160.0; // 160mm
         attribute :>> sweepAngle = 3.5;
         attribute :>> dihedralAngle = 2.0;
+        attribute :>> pitchAngle = 2.5;
+
+        attribute :>> wingAreaM2 = 0.36;
+        attribute :>> aspectRatio = 9.0;
+        attribute :>> cruiseCL = 0.45;
+
+        attribute :>> grossMassKg = 3.2;
+        attribute :>> payloadMassKg = 1.2;
+        attribute :>> batteryMassKg = 0.8;
+        attribute :>> flightDurationMin = 45.0;
 
         part :>> profile {
             attribute :>> designation = "NACA 4412";

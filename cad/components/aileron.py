@@ -3,6 +3,8 @@ import math
 import FreeCAD as App
 import Part
 
+from components.wing_body import ensure_manifold_solid
+
 class AileronGenerator:
     """Generates the aileron solid and wing cutting tools with true 3D alignment."""
 
@@ -36,7 +38,7 @@ class AileronGenerator:
         hy = y
         # Center precisely on the airfoil mean camber line inside the wing core
         hz = le.z + chord * self.camber_ratio
-        return App.Vector(hx, hy, hz)
+        return self.wg.rotate_point_at(hx, hy, hz)
 
     def build_aileron_and_cutters(self, wing_solid):
         """Constructs the separated aileron and cutting tool for the wing.
@@ -99,42 +101,35 @@ class AileronGenerator:
             wing_cutout, aileron_body, p_in, p_out
         )
 
+        wing_with_hinges = ensure_manifold_solid(wing_with_hinges)
+        aileron_with_hinges = ensure_manifold_solid(aileron_with_hinges)
+
         return wing_with_hinges, aileron_with_hinges
 
     def _create_bevel_cutter(self, p_in, p_out, height):
         """Creates lofted V-shaped cutter to relieve aileron leading edge for deflection."""
         rad = math.radians(self.bevel_angle)
         dx = (height / 2.0) * math.tan(rad)
+        margin = 10.0
 
-        w_in_1 = Part.makePolygon([
-            App.Vector(p_in.x, self.y_start - 3.0, p_in.z),
+        # Construct single closed V-profile polygon to avoid knife-edge boolean fusions
+        w_in = Part.makePolygon([
+            App.Vector(p_in.x - dx - margin, self.y_start - 3.0, p_in.z + height / 2.0),
             App.Vector(p_in.x + dx, self.y_start - 3.0, p_in.z + height / 2.0),
-            App.Vector(p_in.x - dx, self.y_start - 3.0, p_in.z + height / 2.0),
-            App.Vector(p_in.x, self.y_start - 3.0, p_in.z)
-        ])
-        w_out_1 = Part.makePolygon([
-            App.Vector(p_out.x, self.y_end + 3.0, p_out.z),
-            App.Vector(p_out.x + dx, self.y_end + 3.0, p_out.z + height / 2.0),
-            App.Vector(p_out.x - dx, self.y_end + 3.0, p_out.z + height / 2.0),
-            App.Vector(p_out.x, self.y_end + 3.0, p_out.z)
-        ])
-        top_bevel = Part.makeLoft([Part.Wire(w_in_1), Part.Wire(w_out_1)], True, True)
-
-        w_in_2 = Part.makePolygon([
             App.Vector(p_in.x, self.y_start - 3.0, p_in.z),
             App.Vector(p_in.x + dx, self.y_start - 3.0, p_in.z - height / 2.0),
-            App.Vector(p_in.x - dx, self.y_start - 3.0, p_in.z - height / 2.0),
-            App.Vector(p_in.x, self.y_start - 3.0, p_in.z)
+            App.Vector(p_in.x - dx - margin, self.y_start - 3.0, p_in.z - height / 2.0),
+            App.Vector(p_in.x - dx - margin, self.y_start - 3.0, p_in.z + height / 2.0)
         ])
-        w_out_2 = Part.makePolygon([
+        w_out = Part.makePolygon([
+            App.Vector(p_out.x - dx - margin, self.y_end + 3.0, p_out.z + height / 2.0),
+            App.Vector(p_out.x + dx, self.y_end + 3.0, p_out.z + height / 2.0),
             App.Vector(p_out.x, self.y_end + 3.0, p_out.z),
             App.Vector(p_out.x + dx, self.y_end + 3.0, p_out.z - height / 2.0),
-            App.Vector(p_out.x - dx, self.y_end + 3.0, p_out.z - height / 2.0),
-            App.Vector(p_out.x, self.y_end + 3.0, p_out.z)
+            App.Vector(p_out.x - dx - margin, self.y_end + 3.0, p_out.z - height / 2.0),
+            App.Vector(p_out.x - dx - margin, self.y_end + 3.0, p_out.z + height / 2.0)
         ])
-        bot_bevel = Part.makeLoft([Part.Wire(w_in_2), Part.Wire(w_out_2)], True, True)
-
-        return top_bevel.fuse(bot_bevel)
+        return Part.makeLoft([Part.Wire(w_in), Part.Wire(w_out)], True, True)
 
     def _add_pin_hinges(self, wing_cutout, aileron_body, p_in, p_out):
         """Creates interlocking hinge barrels with radial/axial clearance pockets and full-span pin tunnel."""

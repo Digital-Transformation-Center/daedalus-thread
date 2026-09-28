@@ -1,1 +1,4 @@
 **/.venv
+*.FCBak
+__pycache__/
+*.pyc
