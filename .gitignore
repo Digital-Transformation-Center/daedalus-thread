@@ -2,3 +2,5 @@
 *.FCBak
 __pycache__/
 *.pyc
+*.stl
+*.step
