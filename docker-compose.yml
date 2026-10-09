@@ -1,0 +1,36 @@
+services:
+  sysml-db:
+    image: postgres:15-alpine
+    container_name: daedalus-sysml-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sysml2
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: mysecretpassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - sysml-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d sysml2"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  sysml-api:
+    image: mbsemashup/sysmlv2-api.pilotimpl:latest
+    container_name: daedalus-sysml-api
+    restart: unless-stopped
+    depends_on:
+      sysml-db:
+        condition: service_healthy
+    environment:
+      JDBC_URL: jdbc:postgresql://sysml-db:5432/sysml2
+      JDBC_USER: postgres
+      JDBC_PASSWORD: mysecretpassword
+      HIBERNATE_HBM2DDL: update
+    ports:
+      - "9000:9000"
+
+volumes:
+  sysml-db-data:

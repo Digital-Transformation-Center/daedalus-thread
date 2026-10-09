@@ -1,0 +1,818 @@
+---
+/**
+ * DigitalThreadFlow.astro
+ * Interactive, auto-cycling architectural step carousel visualizing the
+ * Daedalus Thread Phase 1 digital thread pipeline. Includes progress bar,
+ * manual tab controls, pause/play toggles, and feedback loop tracing.
+ */
+---
+
+<div class="dt-carousel-card" id="dt-pipeline-carousel">
+  <!-- HUD Top Bar -->
+  <div class="dt-carousel-header">
+    <div class="dt-carousel-tag">
+      <span class="dt-pulse-dot"></span>
+      <span class="dt-carousel-title">DIGITAL THREAD ARCHITECTURE</span>
+      <span class="dt-carousel-sep">//</span>
+      <span class="dt-carousel-subtitle">PHASE 1 SYNTHESIS PIPELINE</span>
+    </div>
+    <div class="dt-carousel-controls">
+      <button class="dt-hud-btn dt-btn-toggle-auto" type="button" title="Toggle Auto-Step">
+        <span class="dt-btn-dot"></span>
+        <span class="dt-auto-label">PAUSE AUTO-PLAY</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Interactive Step Progress Navigation Bar -->
+  <div class="dt-step-nav" role="tablist" aria-label="Pipeline Stages">
+    <button class="dt-nav-tab active" data-step="0" role="tab" type="button">
+      <span class="dt-tab-idx">01</span>
+      <span class="dt-tab-text">REQUIREMENTS</span>
+      <div class="dt-tab-progress"><div class="dt-progress-fill"></div></div>
+    </button>
+    <button class="dt-nav-tab" data-step="1" role="tab" type="button">
+      <span class="dt-tab-idx">02</span>
+      <span class="dt-tab-text">SIZING</span>
+      <div class="dt-tab-progress"><div class="dt-progress-fill"></div></div>
+    </button>
+    <button class="dt-nav-tab" data-step="2" role="tab" type="button">
+      <span class="dt-tab-idx">03</span>
+      <span class="dt-tab-text">CAD SYNTHESIS</span>
+      <div class="dt-tab-progress"><div class="dt-progress-fill"></div></div>
+    </button>
+    <button class="dt-nav-tab" data-step="3" role="tab" type="button">
+      <span class="dt-tab-idx">04</span>
+      <span class="dt-tab-text">CFD ANALYSIS</span>
+      <div class="dt-tab-progress"><div class="dt-progress-fill"></div></div>
+    </button>
+    <button class="dt-nav-tab" data-step="4" role="tab" type="button">
+      <span class="dt-tab-idx">05</span>
+      <span class="dt-tab-text">VERIFICATION</span>
+      <div class="dt-tab-progress"><div class="dt-progress-fill"></div></div>
+    </button>
+  </div>
+
+  <!-- Slide Display Container -->
+  <div class="dt-slides-viewport">
+    <!-- Slide 1: Requirements -->
+    <div class="dt-slide active" data-slide="0">
+      <div class="dt-slide-badge badge-blue">STAGE 01 // SysML v2 REST API</div>
+      <h4 class="dt-slide-heading">Mission Requirements Baseline</h4>
+      <p class="dt-slide-desc">
+        Mission parameters defined in SysML v2 act as the machine-readable Single Source of Truth (SSOT). Downstream physics solvers query this baseline directly rather than relying on decoupled spreadsheets.
+      </p>
+      <div class="dt-pill-grid">
+        <div class="dt-pill"><span class="dt-k">Cruise Speed:</span> <span class="dt-v">&gt;= 18.0 m/s</span></div>
+        <div class="dt-pill"><span class="dt-k">Stall Limit:</span> <span class="dt-v">&lt;= 11.0 m/s</span></div>
+        <div class="dt-pill"><span class="dt-k">Payload Mass:</span> <span class="dt-v">&gt;= 1.20 kg</span></div>
+        <div class="dt-pill"><span class="dt-k">Wingspan Limit:</span> <span class="dt-v">&lt;= 1800 mm</span></div>
+        <div class="dt-pill"><span class="dt-k">Duration:</span> <span class="dt-v">&gt;= 30.0 min</span></div>
+      </div>
+      <div class="dt-slide-meta">
+        <span class="dt-meta-file">Artifact: <code>model/requirements/mission_reqs.sysml</code></span>
+        <span class="dt-meta-next">Next Step: Physics Sizing &rarr;</span>
+      </div>
+    </div>
+
+    <!-- Slide 2: Physics Sizing -->
+    <div class="dt-slide" data-slide="1">
+      <div class="dt-slide-badge badge-cyan">STAGE 02 // Physics Middleware</div>
+      <h4 class="dt-slide-heading">Mass Convergence &amp; Planform Sizing</h4>
+      <p class="dt-slide-desc">
+        Python aeromechanical equations balance total All-Up Weight (AUW), battery mass required for endurance under cruise thrust, and structural wing mass to size optimal planform dimensions.
+      </p>
+      <div class="dt-pill-grid">
+        <div class="dt-pill"><span class="dt-k">Converged AUW:</span> <span class="dt-v">2.95 kg</span></div>
+        <div class="dt-pill"><span class="dt-k">Battery Energy:</span> <span class="dt-v">0.31 kg (45 Wh)</span></div>
+        <div class="dt-pill"><span class="dt-k">Wing Surface Area:</span> <span class="dt-v">0.321 m&sup2;</span></div>
+        <div class="dt-pill"><span class="dt-k">Aspect Ratio:</span> <span class="dt-v">7.50</span></div>
+        <div class="dt-pill"><span class="dt-k">Incidence Trim:</span> <span class="dt-v">2.7 deg</span></div>
+      </div>
+      <div class="dt-slide-meta">
+        <span class="dt-meta-file">Artifact: <code>middleware/sizing/aero.py</code></span>
+        <span class="dt-meta-next">Next Step: Parametric CAD &rarr;</span>
+      </div>
+    </div>
+
+    <!-- Slide 3: Parametric CAD -->
+    <div class="dt-slide" data-slide="2">
+      <div class="dt-slide-badge badge-indigo">STAGE 03 // Headless FreeCAD</div>
+      <h4 class="dt-slide-heading">Parametric Solid CAD Synthesis</h4>
+      <p class="dt-slide-desc">
+        Headless FreeCAD lofting scripts translate sized planform dimensions and normalized NACA coordinates into solid B-Rep geometry, complete with control surfaces, hinge pins, and servo cutouts.
+      </p>
+      <div class="dt-pill-grid">
+        <div class="dt-pill"><span class="dt-k">Wingspan / Chord:</span> <span class="dt-v">1400 / 212 mm</span></div>
+        <div class="dt-pill"><span class="dt-k">Airfoil Section:</span> <span class="dt-v">NACA 2412 / 4412</span></div>
+        <div class="dt-pill"><span class="dt-k">Aileron Pocket:</span> <span class="dt-v">Integrated Subassembly</span></div>
+        <div class="dt-pill"><span class="dt-k">Spar Joiners:</span> <span class="dt-v">6.0 mm Carbon Fiber</span></div>
+        <div class="dt-pill"><span class="dt-k">Computed CAD Mass:</span> <span class="dt-v">0.343 kg</span></div>
+      </div>
+      <div class="dt-slide-meta">
+        <span class="dt-meta-file">Artifact: <code>output/phase1_artifacts/wing_assembly.step</code></span>
+        <span class="dt-meta-next">Next Step: CFD Verification &rarr;</span>
+      </div>
+    </div>
+
+    <!-- Slide 4: CFD Aerodynamics -->
+    <div class="dt-slide" data-slide="3">
+      <div class="dt-slide-badge badge-violet">STAGE 04 // OpenFOAM CfdOF</div>
+      <h4 class="dt-slide-heading">Multi-Physics CFD Verification</h4>
+      <p class="dt-slide-desc">
+        Automated virtual wind tunnel mesh generation evaluates aerodynamic forces using steady-state RANS k-&omega; SST equations in OpenFOAM, verifying cruise lift, drag, and attached boundary layer flow.
+      </p>
+      <div class="dt-pill-grid">
+        <div class="dt-pill"><span class="dt-k">Cruise CL:</span> <span class="dt-v">0.454 (Target Met)</span></div>
+        <div class="dt-pill"><span class="dt-k">Aero L/D:</span> <span class="dt-v">19.1 (High Efficiency)</span></div>
+        <div class="dt-pill"><span class="dt-k">Thrust Power:</span> <span class="dt-v">27.3 W mechanical</span></div>
+        <div class="dt-pill"><span class="dt-k">Cruise Endurance:</span> <span class="dt-v">68.6 min</span></div>
+        <div class="dt-pill"><span class="dt-k">Boundary State:</span> <span class="dt-v">Fully Attached</span></div>
+      </div>
+      <div class="dt-slide-meta">
+        <span class="dt-meta-file">Artifact: <code>cad/output/cfd_midspan_pressure.png</code></span>
+        <span class="dt-meta-next">Next Step: Closed-Loop Verification &rarr;</span>
+      </div>
+    </div>
+
+    <!-- Slide 5: System Verification -->
+    <div class="dt-slide" data-slide="4">
+      <div class="dt-slide-badge badge-emerald">STAGE 05 // SysML v2 Engine</div>
+      <h4 class="dt-slide-heading">Automated Compliance Verification</h4>
+      <p class="dt-slide-desc">
+        Verification actions programmatic evaluate synthesized CAD and CFD metrics against Phase 1 requirements, calculating margins of safety and reporting verdicts back to the system model repository.
+      </p>
+      <div class="dt-pill-grid">
+        <div class="dt-pill"><span class="dt-k">Stall Speed:</span> <span class="dt-v">+0.42 m/s (PASS)</span></div>
+        <div class="dt-pill"><span class="dt-k">Wingspan Envelope:</span> <span class="dt-v">+400 mm (PASS)</span></div>
+        <div class="dt-pill"><span class="dt-k">Wing Solid Mass:</span> <span class="dt-v">+0.307 kg (PASS)</span></div>
+        <div class="dt-pill"><span class="dt-k">Flight Duration:</span> <span class="dt-v">+38.6 min (PASS)</span></div>
+        <div class="dt-pill"><span class="dt-k">Useful Payload:</span> <span class="dt-v">+2.85 kg (PASS)</span></div>
+      </div>
+      <div class="dt-slide-meta">
+        <span class="dt-meta-file">Artifact: <code>model/verification/system_verification.sysml</code></span>
+        <span class="dt-meta-next text-emerald">&larr; Feedback Loop Closes to Step 01</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Nav Controls -->
+  <div class="dt-carousel-footer">
+    <div class="dt-nav-arrows">
+      <button class="dt-nav-btn dt-btn-prev" type="button" title="Previous Stage">&larr; PREV</button>
+      <button class="dt-nav-btn dt-btn-next" type="button" title="Next Stage">NEXT &rarr;</button>
+    </div>
+    <div class="dt-feedback-indicator">
+      <span class="dt-feedback-pulse-dot"></span>
+      <span class="dt-feedback-subtext">CLOSED-LOOP: Verdicts post directly to SysML v2 REST API</span>
+    </div>
+  </div>
+
+  <!-- Tactical Reticle Brackets -->
+  <div class="dt-bracket dt-bracket-tl"></div>
+  <div class="dt-bracket dt-bracket-tr"></div>
+  <div class="dt-bracket dt-bracket-bl"></div>
+  <div class="dt-bracket dt-bracket-br"></div>
+</div>
+
+<script>
+  function initPipelineCarousel() {
+    const card = document.getElementById('dt-pipeline-carousel');
+    if (!card || card.dataset.initialized === 'true') return;
+    card.dataset.initialized = 'true';
+
+    const tabs = card.querySelectorAll<HTMLButtonElement>('.dt-nav-tab');
+    const slides = card.querySelectorAll<HTMLElement>('.dt-slide');
+    const prevBtn = card.querySelector<HTMLButtonElement>('.dt-btn-prev');
+    const nextBtn = card.querySelector<HTMLButtonElement>('.dt-btn-next');
+    const autoBtn = card.querySelector<HTMLButtonElement>('.dt-btn-toggle-auto');
+    const autoLabel = card.querySelector<HTMLElement>('.dt-auto-label');
+
+    let currentStep = 0;
+    const totalSteps = slides.length;
+    let isAutoPlay = true;
+    const stepDurationMs = 4200;
+    let timerId: number | null = null;
+    let progressStartTime = Date.now();
+    let animFrameId: number | null = null;
+
+    function showStep(index: number) {
+      currentStep = (index + totalSteps) % totalSteps;
+
+      tabs.forEach((tab, i) => {
+        const isActive = i === currentStep;
+        tab.classList.toggle('active', isActive);
+        const fill = tab.querySelector<HTMLElement>('.dt-progress-fill');
+        if (fill) {
+          fill.style.width = isActive ? '0%' : (i < currentStep ? '100%' : '0%');
+        }
+      });
+
+      slides.forEach((slide, i) => {
+        slide.classList.toggle('active', i === currentStep);
+      });
+
+      progressStartTime = Date.now();
+    }
+
+    function nextStep() {
+      showStep(currentStep + 1);
+    }
+
+    function prevStep() {
+      showStep(currentStep - 1);
+    }
+
+    // Progress bar animation loop
+    function updateProgress() {
+      if (isAutoPlay) {
+        const elapsed = Date.now() - progressStartTime;
+        const pct = Math.min(100, (elapsed / stepDurationMs) * 100);
+        const activeTab = tabs[currentStep];
+        if (activeTab) {
+          const fill = activeTab.querySelector<HTMLElement>('.dt-progress-fill');
+          if (fill) fill.style.width = `${pct}%`;
+        }
+
+        if (elapsed >= stepDurationMs) {
+          nextStep();
+        }
+      }
+      animFrameId = requestAnimationFrame(updateProgress);
+    }
+
+    function setAutoPlay(active: boolean) {
+      isAutoPlay = active;
+      if (autoBtn && autoLabel) {
+        autoBtn.classList.toggle('active', !active);
+        autoLabel.textContent = active ? 'PAUSE AUTO-PLAY' : 'RESUME AUTO-PLAY';
+      }
+      progressStartTime = Date.now();
+    }
+
+    // Event Listeners
+    tabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        const step = parseInt(tab.dataset.step || '0', 10);
+        showStep(step);
+        setAutoPlay(false);
+      });
+    });
+
+    if (prevBtn) {
+      prevBtn.addEventListener('click', () => {
+        prevStep();
+        setAutoPlay(false);
+      });
+    }
+
+    if (nextBtn) {
+      nextBtn.addEventListener('click', () => {
+        nextStep();
+        setAutoPlay(false);
+      });
+    }
+
+    if (autoBtn) {
+      autoBtn.addEventListener('click', () => {
+        setAutoPlay(!isAutoPlay);
+      });
+    }
+
+    // Pause on hover, resume on leave
+    card.addEventListener('mouseenter', () => {
+      if (isAutoPlay) {
+        // Soft pause
+        cancelAnimationFrame(animFrameId || 0);
+      }
+    });
+
+    card.addEventListener('mouseleave', () => {
+      if (isAutoPlay) {
+        progressStartTime = Date.now();
+        animFrameId = requestAnimationFrame(updateProgress);
+      }
+    });
+
+    // Start carousel
+    showStep(0);
+    animFrameId = requestAnimationFrame(updateProgress);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initPipelineCarousel);
+  } else {
+    initPipelineCarousel();
+  }
+  document.addEventListener('astro:page-load', initPipelineCarousel);
+</script>
+
+<style>
+  .dt-carousel-card {
+    position: relative;
+    width: 100%;
+    margin: 1.5rem 0;
+    padding: 1.25rem 1.4rem;
+    border-radius: 0.6rem;
+    background: radial-gradient(circle at 50% 30%, rgba(15, 23, 42, 0.96), rgba(2, 6, 23, 0.98));
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    box-shadow: 0 6px 28px rgba(0, 0, 0, 0.35);
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  :root[data-theme='light'] .dt-carousel-card {
+    background: radial-gradient(circle at 50% 30%, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.96));
+    border-color: rgba(2, 132, 199, 0.3);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  }
+
+  /* HUD Header */
+  .dt-carousel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+    padding-bottom: 0.6rem;
+  }
+
+  .dt-carousel-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.72rem;
+  }
+
+  .dt-pulse-dot {
+    width: 0.42rem;
+    height: 0.42rem;
+    border-radius: 50%;
+    background: #38bdf8;
+    box-shadow: 0 0 6px #38bdf8;
+  }
+
+  .dt-carousel-title {
+    font-weight: 700;
+    color: #f1f5f9;
+  }
+
+  :root[data-theme='light'] .dt-carousel-title {
+    color: #0f172a;
+  }
+
+  .dt-carousel-sep {
+    color: rgba(56, 189, 248, 0.5);
+  }
+
+  .dt-carousel-subtitle {
+    color: #38bdf8;
+    font-weight: 600;
+  }
+
+  :root[data-theme='light'] .dt-carousel-subtitle {
+    color: #0284c7;
+  }
+
+  /* HUD Button */
+  .dt-hud-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.22rem 0.55rem;
+    border-radius: 0.3rem;
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    color: #94a3b8;
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.64rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  :root[data-theme='light'] .dt-hud-btn {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(148, 163, 184, 0.4);
+    color: #475569;
+  }
+
+  .dt-hud-btn:hover {
+    border-color: #38bdf8;
+    color: #38bdf8;
+  }
+
+  .dt-hud-btn.active {
+    background: rgba(56, 189, 248, 0.15);
+    border-color: #38bdf8;
+    color: #38bdf8;
+  }
+
+  .dt-btn-dot {
+    width: 0.32rem;
+    height: 0.32rem;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  /* Step Progress Navigation */
+  .dt-step-nav {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.4rem;
+    margin-bottom: 1.25rem;
+    position: relative;
+    z-index: 2;
+  }
+
+  @media (max-width: 600px) {
+    .dt-step-nav {
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.25rem;
+    }
+  }
+
+  .dt-nav-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
+    padding: 0.45rem 0.5rem;
+    border-radius: 0.35rem;
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  :root[data-theme='light'] .dt-nav-tab {
+    background: rgba(255, 255, 255, 0.85);
+    border-color: rgba(203, 213, 225, 0.9);
+  }
+
+  .dt-nav-tab:hover {
+    border-color: #38bdf8;
+  }
+
+  .dt-nav-tab.active {
+    background: rgba(56, 189, 248, 0.12);
+    border-color: #38bdf8;
+  }
+
+  :root[data-theme='light'] .dt-nav-tab.active {
+    background: rgba(2, 132, 199, 0.1);
+    border-color: #0284c7;
+  }
+
+  .dt-tab-idx {
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.65rem;
+    font-weight: 800;
+    color: #64748b;
+  }
+
+  .dt-nav-tab.active .dt-tab-idx {
+    color: #38bdf8;
+  }
+
+  :root[data-theme='light'] .dt-nav-tab.active .dt-tab-idx {
+    color: #0284c7;
+  }
+
+  .dt-tab-text {
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.64rem;
+    font-weight: 700;
+    color: #cbd5e1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  @media (max-width: 600px) {
+    .dt-tab-text {
+      display: none;
+    }
+  }
+
+  :root[data-theme='light'] .dt-tab-text {
+    color: #475569;
+  }
+
+  .dt-nav-tab.active .dt-tab-text {
+    color: #f8fafc;
+  }
+
+  :root[data-theme='light'] .dt-nav-tab.active .dt-tab-text {
+    color: #0f172a;
+  }
+
+  .dt-tab-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: rgba(148, 163, 184, 0.2);
+  }
+
+  .dt-progress-fill {
+    height: 100%;
+    width: 0%;
+    background: #38bdf8;
+    transition: width 0.1s linear;
+  }
+
+  :root[data-theme='light'] .dt-progress-fill {
+    background: #0284c7;
+  }
+
+  /* Slide Viewport */
+  .dt-slides-viewport {
+    position: relative;
+    min-height: 230px;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    border-radius: 0.5rem;
+    padding: 1.1rem 1.25rem;
+    overflow: hidden;
+  }
+
+  :root[data-theme='light'] .dt-slides-viewport {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: rgba(226, 232, 240, 0.9);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+  }
+
+  .dt-slide {
+    display: none;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+
+  .dt-slide.active {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .dt-slide-badge {
+    align-self: flex-start;
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 0.18rem 0.5rem;
+    border-radius: 0.25rem;
+  }
+
+  .badge-blue {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+  }
+  .badge-cyan {
+    background: rgba(6, 182, 212, 0.15);
+    color: #22d3ee;
+    border: 1px solid rgba(6, 182, 212, 0.3);
+  }
+  .badge-indigo {
+    background: rgba(99, 102, 241, 0.15);
+    color: #818cf8;
+    border: 1px solid rgba(99, 102, 241, 0.3);
+  }
+  .badge-violet {
+    background: rgba(139, 92, 246, 0.15);
+    color: #a78bfa;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+  }
+  .badge-emerald {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+  }
+
+  .dt-slide-heading {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #f8fafc;
+    margin: 0;
+  }
+
+  :root[data-theme='light'] .dt-slide-heading {
+    color: #0f172a;
+  }
+
+  .dt-slide-desc {
+    font-size: 0.82rem;
+    color: #94a3b8;
+    line-height: 1.45;
+    margin: 0;
+  }
+
+  :root[data-theme='light'] .dt-slide-desc {
+    color: #475569;
+  }
+
+  /* Metric Pills Grid */
+  .dt-pill-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0.3rem 0;
+  }
+
+  .dt-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.55rem;
+    border-radius: 0.3rem;
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    font-size: 0.72rem;
+  }
+
+  :root[data-theme='light'] .dt-pill {
+    background: rgba(241, 245, 249, 0.9);
+    border-color: rgba(203, 213, 225, 0.8);
+  }
+
+  .dt-pill .dt-k {
+    color: #94a3b8;
+  }
+
+  :root[data-theme='light'] .dt-pill .dt-k {
+    color: #64748b;
+  }
+
+  .dt-pill .dt-v {
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-weight: 700;
+    color: #38bdf8;
+  }
+
+  :root[data-theme='light'] .dt-pill .dt-v {
+    color: #0284c7;
+  }
+
+  /* Slide Meta Info */
+  .dt-slide-meta {
+    margin-top: auto;
+    padding-top: 0.5rem;
+    border-top: 1px dashed rgba(148, 163, 184, 0.2);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    font-size: 0.72rem;
+  }
+
+  .dt-meta-file {
+    color: #64748b;
+  }
+
+  .dt-meta-file code {
+    font-size: 0.68rem;
+    padding: 0.15rem 0.35rem;
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    border-radius: 0.2rem;
+    color: #38bdf8;
+  }
+
+  :root[data-theme='light'] .dt-meta-file code {
+    background: rgba(241, 245, 249, 0.9);
+    border-color: rgba(2, 132, 199, 0.25);
+    color: #0284c7;
+  }
+
+  .dt-meta-next {
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-weight: 700;
+    color: #38bdf8;
+    font-size: 0.72rem;
+  }
+
+  :root[data-theme='light'] .dt-meta-next {
+    color: #0284c7;
+  }
+
+  .text-emerald {
+    color: #34d399 !important;
+  }
+
+  /* Carousel Footer */
+  .dt-carousel-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .dt-nav-arrows {
+    display: flex;
+    gap: 0.4rem;
+  }
+
+  .dt-nav-btn {
+    padding: 0.25rem 0.65rem;
+    border-radius: 0.3rem;
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    color: #94a3b8;
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.68rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  :root[data-theme='light'] .dt-nav-btn {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(203, 213, 225, 0.9);
+    color: #475569;
+  }
+
+  .dt-nav-btn:hover {
+    border-color: #38bdf8;
+    color: #38bdf8;
+  }
+
+  :root[data-theme='light'] .dt-nav-btn:hover {
+    border-color: #0284c7;
+    color: #0284c7;
+  }
+
+  .dt-feedback-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.66rem;
+    color: #34d399;
+  }
+
+  :root[data-theme='light'] .dt-feedback-indicator {
+    color: #059669;
+  }
+
+  .dt-feedback-pulse-dot {
+    width: 0.38rem;
+    height: 0.38rem;
+    border-radius: 50%;
+    background: #34d399;
+    box-shadow: 0 0 6px #34d399;
+  }
+
+  /* Tactical Reticle Brackets */
+  .dt-bracket {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    pointer-events: none;
+    z-index: 5;
+    border-color: rgba(56, 189, 248, 0.4);
+  }
+
+  :root[data-theme='light'] .dt-bracket {
+    border-color: rgba(2, 132, 199, 0.4);
+  }
+
+  .dt-bracket-tl {
+    top: 0.5rem;
+    left: 0.5rem;
+    border-top: 2px solid;
+    border-left: 2px solid;
+  }
+  .dt-bracket-tr {
+    top: 0.5rem;
+    right: 0.5rem;
+    border-top: 2px solid;
+    border-right: 2px solid;
+  }
+  .dt-bracket-bl {
+    bottom: 0.5rem;
+    left: 0.5rem;
+    border-bottom: 2px solid;
+    border-left: 2px solid;
+  }
+  .dt-bracket-br {
+    bottom: 0.5rem;
+    right: 0.5rem;
+    border-bottom: 2px solid;
+    border-right: 2px solid;
+  }
+</style>

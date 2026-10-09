@@ -7,12 +7,21 @@
     "start": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
+    "serve": "python serve.py",
     "astro": "astro"
   },
   "dependencies": {
+    "@astrojs/markdown-remark": "^7.3.2",
     "@astrojs/starlight": "^0.42.1",
+    "@types/three": "^0.186.0",
     "astro": "^7.2.10",
-    "sharp": "^0.35.3"
+    "astro-mermaid": "^2.1.0",
+    "katex": "^0.19.0",
+    "mermaid": "^11.17.2",
+    "rehype-katex": "^7.0.1",
+    "remark-math": "^6.0.0",
+    "sharp": "^0.35.3",
+    "three": "^0.186.1"
   },
   "allowScripts": {
     "esbuild": true

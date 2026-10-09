@@ -1,0 +1,597 @@
+---
+/**
+ * CadViewer.astro
+ * Renders an interactive 3D WebGL CAD viewport for STL solid geometry
+ * using Three.js. Supports orbit rotation, zoom, wireframe toggle,
+ * and auto-rotation.
+ */
+
+interface Props {
+  modelUrl?: string;
+  title?: string;
+  badge?: string;
+  height?: string;
+  spanMm?: number;
+  chordMm?: number;
+  massKg?: number;
+}
+
+const {
+  modelUrl = '/models/wing_assembly.stl',
+  title = 'Synthesized Wing Assembly',
+  badge = 'CAD SOLID',
+  height = '420px',
+  spanMm = 1400,
+  chordMm = 212,
+  massKg = 0.343,
+} = Astro.props;
+
+// Normalize base URL to ensure asset is fetched correctly regardless of base path
+const rawBase = import.meta.env.BASE_URL || '/';
+const normalizedBase = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
+const resolvedModelUrl = modelUrl.startsWith('/') && !modelUrl.startsWith(normalizedBase)
+  ? `${normalizedBase}${modelUrl.slice(1)}`
+  : modelUrl;
+
+// Unique identifier for multi-instance support
+const viewerId = `dt-cad-viewer-${Math.random().toString(36).substring(2, 9)}`;
+---
+
+<div class="dt-cad-container" style={`min-height: ${height};`} id={viewerId} data-model-url={resolvedModelUrl}>
+  <!-- HUD Header Overlay -->
+  <div class="dt-cad-header">
+    <div class="dt-cad-title-box">
+      <span class="dt-cad-beacon"></span>
+      <span class="dt-cad-title">{title}</span>
+      <span class="dt-cad-sep">//</span>
+      <span class="dt-cad-badge">{badge}</span>
+    </div>
+    <div class="dt-cad-actions">
+      <button class="dt-cad-btn dt-btn-autorotate" type="button" title="Toggle Auto-Rotation">
+        <span class="dt-cad-dot"></span>
+        <span class="dt-label-rotate">PAUSE ROTATION</span>
+      </button>
+      <button class="dt-cad-btn dt-btn-wireframe" type="button" title="Toggle Wireframe Mode">
+        <span class="dt-cad-dot"></span>
+        <span class="dt-label-wire">WIREFRAME</span>
+      </button>
+      <button class="dt-cad-btn dt-btn-reset" type="button" title="Reset View Orientation">
+        <span>RESET</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Telemetry Overlay Strip -->
+  <div class="dt-cad-telemetry">
+    <div class="dt-cad-stat">
+      <span class="dt-stat-label">SPAN:</span>
+      <span class="dt-stat-value">{spanMm} mm</span>
+    </div>
+    <div class="dt-cad-stat">
+      <span class="dt-stat-label">ROOT CHORD:</span>
+      <span class="dt-stat-value">{chordMm} mm</span>
+    </div>
+    <div class="dt-cad-stat">
+      <span class="dt-stat-label">CAD MASS:</span>
+      <span class="dt-stat-value">{massKg} kg</span>
+    </div>
+  </div>
+
+  <!-- Loading State Indicator -->
+  <div class="dt-cad-loader">
+    <div class="dt-cad-spinner"></div>
+    <span class="dt-cad-load-text">PARSING CAD SOLID GEOMETRY...</span>
+  </div>
+
+  <!-- Canvas Mount Element -->
+  <div class="dt-cad-canvas-mount"></div>
+
+  <!-- Tactical Reticle Brackets -->
+  <div class="dt-bracket dt-bracket-tl"></div>
+  <div class="dt-bracket dt-bracket-tr"></div>
+  <div class="dt-bracket dt-bracket-bl"></div>
+  <div class="dt-bracket dt-bracket-br"></div>
+</div>
+
+<script>
+  import * as THREE from 'three';
+  import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
+
+  function initCadViewers() {
+    const viewers = document.querySelectorAll<HTMLElement>('.dt-cad-container');
+
+    viewers.forEach((container) => {
+      if (container.dataset.initialized === 'true') return;
+      container.dataset.initialized = 'true';
+
+      const rawUrl = container.dataset.modelUrl || '/models/wing_assembly.stl';
+      const rawBase = import.meta.env.BASE_URL || '/';
+      const cleanBase = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
+      const modelUrl = rawUrl.startsWith('/') && !rawUrl.startsWith(cleanBase)
+        ? `${cleanBase}${rawUrl.slice(1)}`
+        : rawUrl;
+      const mount = container.querySelector<HTMLElement>('.dt-cad-canvas-mount');
+      const loaderEl = container.querySelector<HTMLElement>('.dt-cad-loader');
+      const rotateBtn = container.querySelector<HTMLButtonElement>('.dt-btn-autorotate');
+      const rotateLabel = container.querySelector<HTMLElement>('.dt-label-rotate');
+      const wireBtn = container.querySelector<HTMLButtonElement>('.dt-btn-wireframe');
+      const resetBtn = container.querySelector<HTMLButtonElement>('.dt-btn-reset');
+
+      if (!mount) return;
+
+      // 1. Scene setup
+      const scene = new THREE.Scene();
+      const modelGroup = new THREE.Group();
+      scene.add(modelGroup);
+
+      // 2. Camera setup
+      const aspect = mount.clientWidth / (mount.clientHeight || 1);
+      const camera = new THREE.PerspectiveCamera(40, aspect, 0.1, 1000);
+      const defaultCamDist = 4.2;
+      camera.position.set(2.4, 1.8, defaultCamDist);
+
+      // 3. Renderer setup
+      const renderer = new THREE.WebGLRenderer({
+        alpha: true,
+        antialias: true,
+        powerPreference: 'high-performance',
+      });
+      renderer.setSize(mount.clientWidth, mount.clientHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.2;
+      mount.appendChild(renderer.domElement);
+
+      // 4. Lighting setup
+      const ambLight = new THREE.AmbientLight(0xffffff, 0.85);
+      scene.add(ambLight);
+
+      const hemiLight = new THREE.HemisphereLight(0x38bdf8, 0x0f172a, 0.6);
+      scene.add(hemiLight);
+
+      const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.4);
+      dirLight1.position.set(5, 10, 7);
+      scene.add(dirLight1);
+
+      const dirLight2 = new THREE.DirectionalLight(0x38bdf8, 0.9);
+      dirLight2.position.set(-6, -4, -5);
+      scene.add(dirLight2);
+
+      // Subtle ground grid
+      const grid = new THREE.GridHelper(5, 20, 0x38bdf8, 0x1e293b);
+      grid.position.y = -0.85;
+      scene.add(grid);
+
+      // Materials
+      const solidMat = new THREE.MeshStandardMaterial({
+        color: 0x38bdf8,
+        roughness: 0.28,
+        metalness: 0.35,
+        side: THREE.DoubleSide,
+      });
+
+      const wireMat = new THREE.MeshBasicMaterial({
+        color: 0x38bdf8,
+        wireframe: true,
+      });
+
+      let mainMesh: THREE.Mesh | null = null;
+      let isWireframe = false;
+      let isAutoRotate = true;
+
+      // Interaction state
+      let isDragging = false;
+      let previousMousePosition = { x: 0, y: 0 };
+      let rotationX = 0.25;
+      let rotationY = -0.65;
+      const defaultRotX = 0.25;
+      const defaultRotY = -0.65;
+
+      // 5. Load STL Geometry
+      const loader = new STLLoader();
+      loader.load(
+        modelUrl,
+        (geometry) => {
+          // Orient wing so span lies horizontally and chord along depth
+          geometry.rotateZ(Math.PI / 2);
+          geometry.rotateX(Math.PI / 2);
+          geometry.center();
+          geometry.computeVertexNormals();
+
+          // Scale model down to normalized viewport units
+          geometry.computeBoundingBox();
+          const bbox = geometry.boundingBox;
+          if (bbox) {
+            const maxDim = Math.max(
+              bbox.max.x - bbox.min.x,
+              bbox.max.y - bbox.min.y,
+              bbox.max.z - bbox.min.z
+            );
+            if (maxDim > 0) {
+              const scale = 2.8 / maxDim;
+              geometry.scale(scale, scale, scale);
+            }
+          }
+
+          mainMesh = new THREE.Mesh(geometry, solidMat);
+          modelGroup.add(mainMesh);
+
+          // Hide loader indicator
+          if (loaderEl) {
+            loaderEl.style.opacity = '0';
+            setTimeout(() => {
+              loaderEl.style.display = 'none';
+            }, 300);
+          }
+        },
+        undefined,
+        (err) => {
+          console.error('Failed to load STL file from:', modelUrl, err);
+          if (loaderEl) {
+            const text = loaderEl.querySelector<HTMLElement>('.dt-cad-load-text');
+            if (text) text.textContent = `CAD MODEL LOAD ERROR (${modelUrl})`;
+          }
+        }
+      );
+
+      // Mouse drag controls
+      mount.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        previousMousePosition = { x: e.clientX, y: e.clientY };
+      });
+
+      window.addEventListener('mouseup', () => {
+        isDragging = false;
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const deltaX = e.clientX - previousMousePosition.x;
+        const deltaY = e.clientY - previousMousePosition.y;
+
+        rotationY += deltaX * 0.008;
+        rotationX += deltaY * 0.008;
+
+        // Clamp vertical angle to prevent flipping
+        rotationX = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, rotationX));
+
+        previousMousePosition = { x: e.clientX, y: e.clientY };
+      });
+
+      // Mouse wheel zoom
+      mount.addEventListener(
+        'wheel',
+        (e) => {
+          e.preventDefault();
+          const zoomDelta = e.deltaY * 0.002;
+          const newZ = camera.position.z + zoomDelta;
+          if (newZ >= 1.5 && newZ <= 8.0) {
+            camera.position.z = newZ;
+          }
+        },
+        { passive: false }
+      );
+
+      // Button controls
+      if (rotateBtn && rotateLabel) {
+        rotateBtn.addEventListener('click', () => {
+          isAutoRotate = !isAutoRotate;
+          rotateLabel.textContent = isAutoRotate ? 'PAUSE ROTATION' : 'RESUME ROTATION';
+          rotateBtn.classList.toggle('active', !isAutoRotate);
+        });
+      }
+
+      if (wireBtn) {
+        wireBtn.addEventListener('click', () => {
+          isWireframe = !isWireframe;
+          if (mainMesh) {
+            mainMesh.material = isWireframe ? wireMat : solidMat;
+          }
+          wireBtn.classList.toggle('active', isWireframe);
+        });
+      }
+
+      if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+          rotationX = defaultRotX;
+          rotationY = defaultRotY;
+          camera.position.set(2.4, 1.8, defaultCamDist);
+          camera.lookAt(0, 0, 0);
+        });
+      }
+
+      // Responsive Resize Observer
+      const resizeObserver = new ResizeObserver(() => {
+        if (!mount.clientWidth || !mount.clientHeight) return;
+        camera.aspect = mount.clientWidth / mount.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(mount.clientWidth, mount.clientHeight);
+      });
+      resizeObserver.observe(mount);
+
+      // Animation loop
+      let animId: number;
+      function renderLoop() {
+        animId = requestAnimationFrame(renderLoop);
+
+        if (isAutoRotate && !isDragging) {
+          rotationY += 0.004;
+        }
+
+        modelGroup.rotation.x = rotationX;
+        modelGroup.rotation.y = rotationY;
+
+        camera.lookAt(0, 0, 0);
+        renderer.render(scene, camera);
+      }
+      renderLoop();
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initCadViewers);
+  } else {
+    initCadViewers();
+  }
+  document.addEventListener('astro:page-load', initCadViewers);
+</script>
+
+<style>
+  .dt-cad-container {
+    position: relative;
+    width: 100%;
+    margin: 1.5rem 0;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 40%, rgba(15, 23, 42, 0.95), rgba(2, 6, 23, 0.98));
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+    user-select: none;
+  }
+
+  :root[data-theme='light'] .dt-cad-container {
+    background: radial-gradient(circle at 50% 40%, rgba(248, 250, 252, 0.98), rgba(226, 232, 240, 0.95));
+    border-color: rgba(2, 132, 199, 0.3);
+  }
+
+  .dt-cad-canvas-mount {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    cursor: grab;
+  }
+
+  .dt-cad-canvas-mount:active {
+    cursor: grabbing;
+  }
+
+  /* Tactical Header Bar */
+  .dt-cad-header {
+    position: absolute;
+    top: 0.85rem;
+    left: 1rem;
+    right: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    z-index: 10;
+    flex-wrap: wrap;
+    pointer-events: none;
+  }
+
+  .dt-cad-title-box {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.25rem 0.65rem;
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: 0.35rem;
+    backdrop-filter: blur(8px);
+    pointer-events: auto;
+  }
+
+  :root[data-theme='light'] .dt-cad-title-box {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(2, 132, 199, 0.25);
+  }
+
+  .dt-cad-beacon {
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 50%;
+    background: #38bdf8;
+    box-shadow: 0 0 6px #38bdf8;
+  }
+
+  .dt-cad-title {
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #f1f5f9;
+  }
+
+  :root[data-theme='light'] .dt-cad-title {
+    color: #0f172a;
+  }
+
+  .dt-cad-sep {
+    color: rgba(56, 189, 248, 0.5);
+    font-size: 0.75rem;
+  }
+
+  .dt-cad-badge {
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.68rem;
+    color: #38bdf8;
+    font-weight: 600;
+  }
+
+  .dt-cad-actions {
+    display: flex;
+    gap: 0.35rem;
+    pointer-events: auto;
+  }
+
+  .dt-cad-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.55rem;
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 0.35rem;
+    color: #94a3b8;
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.65rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    backdrop-filter: blur(8px);
+  }
+
+  :root[data-theme='light'] .dt-cad-btn {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(148, 163, 184, 0.4);
+    color: #475569;
+  }
+
+  .dt-cad-btn:hover {
+    border-color: #38bdf8;
+    color: #38bdf8;
+  }
+
+  .dt-cad-btn.active {
+    background: rgba(56, 189, 248, 0.15);
+    border-color: #38bdf8;
+    color: #38bdf8;
+  }
+
+  .dt-cad-dot {
+    width: 0.32rem;
+    height: 0.32rem;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  /* Telemetry Bar */
+  .dt-cad-telemetry {
+    position: absolute;
+    bottom: 0.85rem;
+    left: 1rem;
+    display: flex;
+    gap: 0.75rem;
+    z-index: 10;
+    pointer-events: none;
+    flex-wrap: wrap;
+  }
+
+  .dt-cad-stat {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.5rem;
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    border-radius: 0.3rem;
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.65rem;
+    backdrop-filter: blur(8px);
+  }
+
+  :root[data-theme='light'] .dt-cad-stat {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(2, 132, 199, 0.2);
+  }
+
+  .dt-stat-label {
+    color: #64748b;
+  }
+
+  .dt-stat-value {
+    color: #38bdf8;
+    font-weight: 700;
+  }
+
+  :root[data-theme='light'] .dt-stat-value {
+    color: #0284c7;
+  }
+
+  /* Loader */
+  .dt-cad-loader {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    background: rgba(15, 23, 42, 0.9);
+    z-index: 15;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+  }
+
+  .dt-cad-spinner {
+    width: 2rem;
+    height: 2rem;
+    border: 2px solid rgba(56, 189, 248, 0.2);
+    border-top-color: #38bdf8;
+    border-radius: 50%;
+    animation: dt-spin 0.8s linear infinite;
+  }
+
+  .dt-cad-load-text {
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.72rem;
+    color: #94a3b8;
+    letter-spacing: 0.05em;
+  }
+
+  @keyframes dt-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* Tactical Reticle Brackets */
+  .dt-bracket {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    pointer-events: none;
+    z-index: 5;
+    border-color: rgba(56, 189, 248, 0.4);
+  }
+
+  :root[data-theme='light'] .dt-bracket {
+    border-color: rgba(2, 132, 199, 0.4);
+  }
+
+  .dt-bracket-tl {
+    top: 0.4rem;
+    left: 0.4rem;
+    border-top: 2px solid;
+    border-left: 2px solid;
+  }
+  .dt-bracket-tr {
+    top: 0.4rem;
+    right: 0.4rem;
+    border-top: 2px solid;
+    border-right: 2px solid;
+  }
+  .dt-bracket-bl {
+    bottom: 0.4rem;
+    left: 0.4rem;
+    border-bottom: 2px solid;
+    border-left: 2px solid;
+  }
+  .dt-bracket-br {
+    bottom: 0.4rem;
+    right: 0.4rem;
+    border-bottom: 2px solid;
+    border-right: 2px solid;
+  }
+</style>

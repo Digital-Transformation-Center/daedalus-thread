@@ -1,0 +1,77 @@
+{
+  "timestamp": "2026-10-07T19:00:42.265969+00:00",
+  "overall_pass": true,
+  "total_checks": 5,
+  "passed_checks": 5,
+  "checks": [
+    {
+      "case_id": "verifyIcarusStall",
+      "requirement_id": "icarusStallReq",
+      "metric": "Stall Speed (m/s)",
+      "required_limit": "<= 11.00",
+      "actual_value": 10.58,
+      "margin": 0.42,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "verifyIcarusSpan",
+      "requirement_id": "icarusSpanReq",
+      "metric": "Wingspan (mm)",
+      "required_limit": "<= 1800.0",
+      "actual_value": 1400.0,
+      "margin": 400.0,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "verifyIcarusMass",
+      "requirement_id": "icarusWingMassReq",
+      "metric": "Wing Mass (kg)",
+      "required_limit": "<= 0.650",
+      "actual_value": 0.343,
+      "margin": 0.307,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "verifyIcarusDuration",
+      "requirement_id": "icarusDurationReq",
+      "metric": "Flight Duration (min)",
+      "required_limit": ">= 30.0",
+      "actual_value": 30.0,
+      "margin": 0.0,
+      "verdict": "PASS"
+    },
+    {
+      "case_id": "verifyIcarusPayload",
+      "requirement_id": "icarusPayloadReq",
+      "metric": "Payload Mass (kg)",
+      "required_limit": ">= 1.20",
+      "actual_value": 1.2,
+      "margin": 0.0,
+      "verdict": "PASS"
+    }
+  ],
+  "cad_summary": {
+    "span_mm": 1400.0,
+    "root_chord_mm": 212.0,
+    "tip_chord_mm": 138.0,
+    "total_wing_mass_kg": 0.343,
+    "center_of_gravity": [
+      93.64,
+      300.03,
+      13.67
+    ]
+  },
+  "aero_summary": {
+    "wing_area_m2": 0.2169,
+    "aspect_ratio": 8.0,
+    "design_cl_cruise": 0.484,
+    "calculated_stall_speed_mps": 10.58
+  },
+  "mission_summary": {
+    "total_mass_kg": 2.124,
+    "payload_mass_kg": 1.2,
+    "battery_mass_kg": 0.198,
+    "flight_duration_min": 30.0,
+    "cruise_power_watts": 56.88
+  }
+}

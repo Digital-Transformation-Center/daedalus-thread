@@ -1,0 +1,125 @@
+---
+title: "Phase 1 Digital Thread: MBSE, Automated CAD, and CFD Verification"
+date: 2026-10-08
+badge: "Milestone"
+badgeVariant: "success"
+sidebar:
+  hidden: true
+---
+
+import { Image } from 'astro:assets';
+import SideBySide from '../../../../components/SideBySide.astro';
+import CadViewer from '../../../../components/CadViewer.astro';
+import imagePressure from './images/2026-10-08-cfd-pressure.png';
+import imageVelocity from './images/2026-10-08-cfd-velocity.png';
+import imageAirfoil from './images/2026-10-08-airfoil-profile.png';
+import imageCad3D from './images/2026-10-08-wing-render-3d.png';
+
+We have completed the first end-to-end iteration of the Daedalus Thread Phase 1 digital thread. The pipeline establishes an automated, closed-loop link running from high-level mission requirements defined in SysML v2, through physics sizing and headless parametric CAD generation, all the way to OpenFOAM CFD aerodynamic verification and automated requirement compliance verdicts.
+
+---
+
+### What the MBSE Model Does & Why It Matters
+
+In traditional aerospace development workflows, system requirements live in static PDF documents or decoupled spreadsheets. When mission requirements change, engineers must manually translate specifications between systems engineering, aerodynamics, CAD drafting, and structural testing. This disconnect introduces handoff latency, transcription errors, and stale design artifacts.
+
+In Daedalus Thread, the **Model-Based Systems Engineering (MBSE)** model acts as the executable **Single Source of Truth (SSOT)**:
+
+* **Parametric Requirement Definitions:** Mission requirements in SysML v2 are not passive text. They are machine-readable constraints with quantitative boundaries (minimum cruise speed, stall limit, mass allocations, dimensional envelopes).
+* **Direct Computational Binding:** Downstream physics engines and CAD generators query the SysML v2 REST API directly to ingest current constraints.
+* **Closed-Loop Verification:** Verification cases defined directly in SysML v2 evaluate output metrics from CAD solids and CFD simulations, automatically recording pass/fail verdicts and safety margins back into the system repository.
+
+---
+
+### The Synthesis Pipeline: Requirements to Physical Geometry
+
+The Phase 1 demonstration centers on the *Icarus* airframe baseline. Five fundamental mission parameter inputs drive the synthesis pipeline:
+
+| Mission Parameter | Target Constraint | Engineering Purpose |
+| :--- | :--- | :--- |
+| **Cruise Airspeed Target** | $\ge 18.0\text{ m/s}$ (~35 knots) | Maintains required ground track velocity during reconnaissance |
+| **Stall Speed Limit** | $\le 11.0\text{ m/s}$ (~21 knots) | Ensures safe hand-launch and stable low-speed recovery |
+| **Payload Mass Capacity** | $\ge 1.20\text{ kg}$ | Accommodates sensor gimbal, telemetry unit, and flight avionics |
+| **Wingspan Upper Bound** | $\le 1800.0\text{ mm}$ | Bounded by vehicle transport, storage, and 3D print bed constraints |
+| **Target Flight Duration** | $\ge 30.0\text{ min}$ | Minimum operational endurance under cruise thrust |
+
+#### Step 1: Physics Mass Convergence & Aero Sizing
+The sizing middleware iterates aeromechanical and powertrain energy equations to converge vehicle All-Up Weight (AUW). The solver balances battery capacity, airframe structural mass, payload, and cruise power requirements, outputting optimal planform geometry:
+* **Converged Gross Mass:** 2.95 kg (Structural airframe: 1.44 kg, Payload: 1.20 kg, Battery: 0.31 kg / 44.6 Wh)
+* **Planform Geometry:** Wingspan of 1552.3 mm (or 1400.0 mm depending on aspect ratio selection), Root Chord 250.9 mm, Tip Chord 163.1 mm, Taper Ratio 0.65, Sweep 3.5 deg, Dihedral 2.0 deg, and Incidence Trim 2.7 deg.
+
+#### Step 2: Parametric Headless CAD Synthesis
+The calculated planform parameters and normalized Selig airfoil profile coordinates (`NACA 2412` / `NACA 4412`) feed into headless FreeCAD. The script dynamically generates the solid lofted wing body, integrates control surfaces (aileron with hinge gaps and pivot tabs), hollows internal servo pockets, and positions carbon fiber spar joiner channels.
+
+The CAD pipeline automatically extracts true solid volumes, computes structural mass based on additive manufacturing infill densities (LW-PLA skins and PETG structural ribs), and exports production STEP solids and STL surface meshes.
+
+<SideBySide>
+  <div>
+    <Image src={imageAirfoil} alt="Selig coordinate profile plot for NACA airfoil section" />
+    <p>Normalized Selig coordinates generated for the lifting airfoil cross-section.</p>
+  </div>
+  <div>
+    <Image src={imageCad3D} alt="Parametric 3D CAD wing solid render with integrated aileron" />
+    <p>Headless FreeCAD generated solid wing with aileron, hinge tabs, and servo pocket.</p>
+  </div>
+</SideBySide>
+
+---
+
+### Interactive 3D CAD Model
+
+The synthesized wing assembly can be inspected directly in 3D below. Drag to orbit, scroll to zoom, and toggle wireframe to inspect internal geometry and control surface separation:
+
+<CadViewer
+  modelUrl="/models/wing_assembly.stl"
+  title="Phase 1 Synthesized Wing Solid"
+  badge="CAD MESH"
+  height="440px"
+  spanMm={1400}
+  chordMm={212}
+  massKg={0.343}
+/>
+
+---
+
+### High-Fidelity CFD Aerodynamic Verification
+
+Once CAD geometry is synthesized, the pipeline enters aerodynamic verification. Using FreeCAD's CfdOF module driving **OpenFOAM simpleFoam**, an automated virtual wind tunnel fluid domain is constructed around the solid geometry.
+
+* **Simulation Physics:** Incompressible, steady-state Reynolds-Averaged Navier-Stokes (RANS) with two-equation $k-\omega$ SST turbulence modeling.
+* **Boundary Conditions:** Uniform velocity inlet at nominal cruise velocity, zero-gradient pressure outlet, no-slip wing walls, slip enclosure walls, and symmetry condition at root chord ($Y = 0$).
+
+Postprocessing via ParaView (`pvpython`) extracts high-resolution planar slices at the wing mid-span:
+
+<SideBySide>
+  <div>
+    <Image src={imagePressure} alt="Mid-span static pressure contour map from OpenFOAM simulation" />
+    <p><strong>Static Pressure Field $p$:</strong> Strong upper leading edge suction peak transitioning through smooth adverse pressure gradient recovery.</p>
+  </div>
+  <div>
+    <Image src={imageVelocity} alt="Mid-span velocity magnitude contour map from OpenFOAM simulation" />
+    <p><strong>Velocity Magnitude $|U|$:</strong> Accelerated flow over the upper suction surface with attached boundary layer and clean trailing wake.</p>
+  </div>
+</SideBySide>
+
+#### Aerodynamic Performance Results
+* **Cruise Lift Coefficient ($C_L$):** 0.454 (matches target lift required to carry 2.95 kg gross mass)
+* **Aerodynamic Efficiency ($L/D$):** 19.1
+* **Thrust Power Required:** 27.3 W mechanical (39.0 W electrical cruise draw)
+* **Calculated Endurance:** 68.6 minutes (exceeds 30.0 min target)
+
+---
+
+### Closing the Loop: Automated Requirements Verification
+
+The final step executes SysML v2 verification actions against the CAD and CFD outputs. The verification engine computes safety margins and validates full compliance:
+
+| Requirement Case | SysML Requirement ID | Metric Checked | Required Constraint | Synthesized Value | Margin | Verdict |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **verifyIcarusStall** | `icarusStallReq` | Stall Speed ($V_s$) | $\le 11.0\text{ m/s}$ | $10.58\text{ m/s}$ | $+0.42\text{ m/s}$ | **PASS** |
+| **verifyIcarusSpan** | `icarusSpanReq` | Wingspan ($b$) | $\le 1800.0\text{ mm}$ | $1400.0\text{ mm}$ | $+400.0\text{ mm}$ | **PASS** |
+| **verifyIcarusMass** | `icarusWingMassReq` | Wing Solid Mass ($m$) | $\le 0.650\text{ kg}$ | $0.343\text{ kg}$ | $+0.307\text{ kg}$ | **PASS** |
+| **verifyIcarusDuration** | `icarusDurationReq` | Flight Endurance ($t$) | $\ge 30.0\text{ min}$ | $68.6\text{ min}$ | $+38.6\text{ min}$ | **PASS** |
+| **verifyIcarusPayload** | `icarusPayloadReq` | Useful Payload | $\ge 1.20\text{ kg}$ | $4.05\text{ kg}\text{ (safe max)}$ | $+2.85\text{ kg}$ | **PASS** |
+
+Upon execution, the verification engine posts the formal verdict payload back to the SysML v2 repository API, closing the loop and confirming all Phase 1 constraints are satisfied.
