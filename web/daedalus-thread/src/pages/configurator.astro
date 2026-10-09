@@ -1,0 +1,878 @@
+---
+/**
+ * Interactive Airframe Preset Configurator.
+ * Allows users to adjust every aerodynamic parameter in real time with sliders,
+ * save and reorder presets, test smooth looping morphs, and export code directly for AirframePresets.ts.
+ */
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Daedalus Thread - Airframe Preset Configurator</title>
+    <link rel="icon" type="image/svg+xml" href="/daedalus-thread/favicon.svg" />
+    <style>
+      :root {
+        --bg-main: #0b0f19;
+        --bg-panel: #111827;
+        --bg-card: #1f2937;
+        --border: #374151;
+        --accent: #38bdf8;
+        --accent-hover: #0284c7;
+        --text: #f9fafb;
+        --text-muted: #9ca3af;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        background-color: var(--bg-main);
+        color: var(--text);
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      /* Viewport area */
+      .viewport-container {
+        flex: 1;
+        position: relative;
+        background: radial-gradient(circle at 50% 50%, #1e293b 0%, #0b0f19 100%);
+        overflow: hidden;
+      }
+
+      #canvas-mount {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .viewport-overlay {
+        position: absolute;
+        top: 1rem;
+        left: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        z-index: 10;
+      }
+
+      .back-btn {
+        padding: 0.4rem 0.8rem;
+        background: rgba(15, 23, 42, 0.75);
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+        color: var(--text);
+        text-decoration: none;
+        font-size: 0.85rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        backdrop-filter: blur(8px);
+      }
+      .back-btn:hover {
+        border-color: var(--accent);
+      }
+
+      .viewport-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        background: rgba(15, 23, 42, 0.75);
+        padding: 0.4rem 0.8rem;
+        border-radius: 0.5rem;
+        border: 1px solid var(--border);
+        backdrop-filter: blur(8px);
+      }
+
+      .viewport-controls {
+        position: absolute;
+        bottom: 1.25rem;
+        left: 1.25rem;
+        display: flex;
+        gap: 0.5rem;
+        z-index: 10;
+      }
+
+      .btn {
+        padding: 0.5rem 1rem;
+        border-radius: 0.5rem;
+        border: 1px solid var(--border);
+        background: var(--bg-card);
+        color: var(--text);
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        transition: all 0.15s ease;
+      }
+      .btn:hover {
+        border-color: var(--accent);
+      }
+      .btn-primary {
+        background: var(--accent);
+        color: #0b0f19;
+        border-color: var(--accent);
+      }
+      .btn-primary:hover {
+        background: var(--accent-hover);
+      }
+      .btn-play {
+        background: #10b981;
+        border-color: #10b981;
+        color: #fff;
+      }
+      .btn-play.playing {
+        background: #ef4444;
+        border-color: #ef4444;
+      }
+
+      /* Sidebar controls */
+      .sidebar {
+        width: 440px;
+        background: var(--bg-panel);
+        border-left: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        z-index: 20;
+      }
+
+      .sidebar-header {
+        padding: 1.25rem;
+        border-bottom: 1px solid var(--border);
+      }
+      .sidebar-header h1 {
+        font-size: 1.2rem;
+        font-weight: 700;
+      }
+      .sidebar-header p {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        margin-top: 0.25rem;
+      }
+
+      .tabs {
+        display: flex;
+        border-bottom: 1px solid var(--border);
+      }
+      .tab-btn {
+        flex: 1;
+        padding: 0.75rem;
+        background: transparent;
+        border: none;
+        color: var(--text-muted);
+        font-weight: 600;
+        font-size: 0.85rem;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+      }
+      .tab-btn.active {
+        color: var(--accent);
+        border-bottom-color: var(--accent);
+        background: rgba(56, 189, 248, 0.05);
+      }
+
+      .tab-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1.25rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+      }
+
+      .section-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.9rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      .section-title {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--accent);
+        font-weight: 700;
+      }
+
+      .slider-control {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+      }
+      .slider-header {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.82rem;
+      }
+      .slider-label {
+        color: var(--text);
+      }
+      .slider-val {
+        color: var(--accent);
+        font-family: monospace;
+        font-weight: 600;
+      }
+      input[type='range'] {
+        width: 100%;
+        accent-color: var(--accent);
+        height: 4px;
+        background: var(--border);
+        border-radius: 2px;
+        outline: none;
+      }
+
+      /* Preset List items */
+      .preset-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem 1rem;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+        cursor: pointer;
+        transition: border 0.15s ease;
+      }
+      .preset-item:hover {
+        border-color: var(--accent);
+      }
+      .preset-item.active {
+        border-color: var(--accent);
+        background: rgba(56, 189, 248, 0.1);
+      }
+      .preset-name {
+        font-size: 0.88rem;
+        font-weight: 600;
+      }
+      .preset-actions {
+        display: flex;
+        gap: 0.35rem;
+      }
+      .icon-btn {
+        background: transparent;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 0.25rem;
+        border-radius: 0.25rem;
+      }
+      .icon-btn:hover {
+        color: #ef4444;
+      }
+
+      /* Modal export */
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.75);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+      }
+      .modal-backdrop.open {
+        display: flex;
+      }
+      .modal {
+        background: var(--bg-panel);
+        border: 1px solid var(--border);
+        border-radius: 0.75rem;
+        width: min(90%, 680px);
+        max-height: 85vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .modal-header {
+        padding: 1.25rem;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .modal-body {
+        padding: 1.25rem;
+        overflow-y: auto;
+      }
+      .modal-code {
+        width: 100%;
+        height: 340px;
+        background: #0b0f19;
+        color: #e2e8f0;
+        font-family: monospace;
+        font-size: 0.8rem;
+        padding: 1rem;
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+        resize: none;
+        white-space: pre;
+      }
+      .modal-footer {
+        padding: 1rem 1.25rem;
+        border-top: 1px solid var(--border);
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- 3D Interactive Viewport -->
+    <div class="viewport-container">
+      <div class="viewport-overlay">
+        <a href="/daedalus-thread/" class="back-btn">&larr; Return to Site</a>
+        <div class="viewport-title" id="viewport-status">Preset Configurator (Drag to Orbit, Scroll to Zoom)</div>
+      </div>
+
+      <div id="canvas-mount"></div>
+
+      <div class="viewport-controls">
+        <button class="btn btn-play" id="btn-play-loop">▶ Test Morph Loop</button>
+        <button class="btn btn-primary" id="btn-save-preset">+ Save as New Preset</button>
+        <button class="btn" id="btn-export-code">📋 Export Configuration</button>
+      </div>
+    </div>
+
+    <!-- Right Sidebar Controls -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <h1>Airframe Tuner</h1>
+        <p>Adjust parameters in real-time and assemble your mission presets.</p>
+      </div>
+
+      <div class="tabs">
+        <button class="tab-btn active" id="tab-sliders-btn">Sliders</button>
+        <button class="tab-btn" id="tab-presets-btn">Presets List (<span id="preset-count">3</span>)</button>
+      </div>
+
+      <!-- Sliders Tab -->
+      <div class="tab-content" id="tab-sliders">
+        <!-- Main Wings -->
+        <div class="section-group">
+          <div class="section-title">Main Wing</div>
+
+          <div class="slider-control">
+            <div class="slider-header">
+              <span class="slider-label">Wingspan (m)</span>
+              <span class="slider-val" id="val-span">1.80</span>
+            </div>
+            <input type="range" id="input-span" min="0.9" max="2.8" step="0.05" value="1.80" />
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-header">
+              <span class="slider-label">Root Chord (m)</span>
+              <span class="slider-val" id="val-rootChord">0.35</span>
+            </div>
+            <input type="range" id="input-rootChord" min="0.18" max="0.55" step="0.01" value="0.35" />
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-header">
+              <span class="slider-label">Tip Chord (m)</span>
+              <span class="slider-val" id="val-tipChord">0.18</span>
+            </div>
+            <input type="range" id="input-tipChord" min="0.08" max="0.30" step="0.01" value="0.18" />
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-header">
+              <span class="slider-label">Sweep Angle (deg)</span>
+              <span class="slider-val" id="val-sweepDeg">12.0</span>
+            </div>
+            <input type="range" id="input-sweepDeg" min="0" max="30" step="0.5" value="12.0" />
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-header">
+              <span class="slider-label">Dihedral Angle (deg)</span>
+              <span class="slider-val" id="val-dihedralDeg">2.0</span>
+            </div>
+            <input type="range" id="input-dihedralDeg" min="0" max="8" step="0.2" value="2.0" />
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-header">
+              <span class="slider-label">Airfoil Thickness</span>
+              <span class="slider-val" id="val-wingThickness">0.16</span>
+            </div>
+            <input type="range" id="input-wingThickness" min="0.10" max="0.24" step="0.01" value="0.16" />
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-header">
+              <span class="slider-label">Wing Forward Position</span>
+              <span class="slider-val" id="val-wingForwardRatio">0.24</span>
+            </div>
+            <input type="range" id="input-wingForwardRatio" min="0.12" max="0.36" step="0.01" value="0.24" />
+          </div>
+        </div>
+
+        <!-- Fuselage -->
+        <div class="section-group">
+          <div class="section-title">Fuselage Pod</div>
+
+          <div class="slider-control">
+            <div class="slider-header">
+              <span class="slider-label">Fuselage Length (m)</span>
+              <span class="slider-val" id="val-fuseLength">1.40</span>
+            </div>
+            <input type="range" id="input-fuseLength" min="0.9" max="2.2" step="0.05" value="1.40" />
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-header">
+              <span class="slider-label">Fuselage Radius (m)</span>
+              <span class="slider-val" id="val-fuseRadius">0.13</span>
+            </div>
+            <input type="range" id="input-fuseRadius" min="0.08" max="0.22" step="0.005" value="0.13" />
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-header">
+              <span class="slider-label">Nose Dome Length Ratio</span>
+              <span class="slider-val" id="val-noseLengthRatio">0.16</span>
+            </div>
+            <input type="range" id="input-noseLengthRatio" min="0.10" max="0.28" step="0.01" value="0.16" />
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-header">
+              <span class="slider-label">Cabin Length Ratio</span>
+              <span class="slider-val" id="val-cabinLengthRatio">0.42</span>
+            </div>
+            <input type="range" id="input-cabinLengthRatio" min="0.24" max="0.55" step="0.01" value="0.42" />
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-header">
+              <span class="slider-label">Cabin Belly Chubbiness</span>
+              <span class="slider-val" id="val-cabinChubbiness">1.20</span>
+            </div>
+            <input type="range" id="input-cabinChubbiness" min="1.0" max="1.45" step="0.02" value="1.20" />
+          </div>
+        </div>
+
+        <!-- Empennage -->
+        <div class="section-group">
+          <div class="section-title">Empennage (Tail)</div>
+
+          <div class="slider-control">
+            <div class="slider-header">
+              <span class="slider-label">Horizontal Stabilizer Span (m)</span>
+              <span class="slider-val" id="val-tailSpan">0.55</span>
+            </div>
+            <input type="range" id="input-tailSpan" min="0.32" max="0.90" step="0.02" value="0.55" />
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-header">
+              <span class="slider-label">Vertical Fin Height (m)</span>
+              <span class="slider-val" id="val-tailFinHeight">0.35</span>
+            </div>
+            <input type="range" id="input-tailFinHeight" min="0.18" max="0.55" step="0.01" value="0.35" />
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-header">
+              <span class="slider-label">Vertical Fin Sweep (deg)</span>
+              <span class="slider-val" id="val-tailFinSweep">22.0</span>
+            </div>
+            <input type="range" id="input-tailFinSweep" min="5" max="38" step="1.0" value="22.0" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Presets List Tab -->
+      <div class="tab-content" id="tab-presets" style="display: none;">
+        <div style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.4;">
+          These presets will be cycled in sequence on the landing page animation. Click any preset to view/edit it.
+        </div>
+        <div id="presets-container" style="display: flex; flex-direction: column; gap: 0.75rem;"></div>
+      </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div class="modal-backdrop" id="export-modal">
+      <div class="modal">
+        <div class="modal-header">
+          <h2>Export Preset Configuration</h2>
+          <button class="icon-btn" id="modal-close" style="font-size: 1.2rem;">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+            Copy this array directly into <code>src/components/hero/AirframePresets.ts</code>:
+          </p>
+          <textarea class="modal-code" id="export-textarea" readonly></textarea>
+        </div>
+        <div class="modal-footer">
+          <button class="btn" id="btn-copy-code">Copy to Clipboard</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      import * as THREE from 'three';
+      import { createAirframeGeometry, updateAirframePositions } from '../components/hero/AirframeLoft';
+      import { AIRFRAME_PRESETS, interpolateParams, type AirframeParams } from '../components/hero/AirframePresets';
+
+      // 1. Initial State
+      let presets: AirframeParams[] = JSON.parse(JSON.stringify(AIRFRAME_PRESETS));
+      let currentParams: AirframeParams = { ...presets[0] };
+      let selectedPresetIndex = 0;
+      let isPlayingLoop = false;
+
+      // Loop animation variables
+      let loopTimer = 0;
+      let loopSourceIdx = 0;
+      let loopTargetIdx = 1;
+      const morphDuration = 2.4;
+      const dwellDuration = 2.2;
+
+      // 2. Three.js Scene Setup
+      const mount = document.getElementById('canvas-mount')!;
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(36, mount.clientWidth / mount.clientHeight, 0.1, 100);
+      camera.position.set(0, 0.45, 3.4);
+
+      const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+      renderer.setSize(mount.clientWidth, mount.clientHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.1;
+      mount.appendChild(renderer.domElement);
+
+      // Studio Lighting
+      const ambientLight = new THREE.AmbientLight(0xffffff, 1.05);
+      scene.add(ambientLight);
+
+      const keyLight = new THREE.DirectionalLight(0xffffff, 0.9);
+      keyLight.position.set(2.5, 3.5, 2.8);
+      scene.add(keyLight);
+
+      const fillLight = new THREE.DirectionalLight(0xf1f5f9, 0.6);
+      fillLight.position.set(-3.0, 1.2, 2.0);
+      scene.add(fillLight);
+
+      const rimLight = new THREE.DirectionalLight(0xe2e8f0, 0.35);
+      rimLight.position.set(0.0, 3.0, -2.8);
+      scene.add(rimLight);
+
+      // Airframe Mesh
+      const geometry = createAirframeGeometry(currentParams);
+      const material = new THREE.MeshStandardMaterial({
+        color: 0x9e9e9e, // Flat neutral gray (#9e9e9e)
+        roughness: 0.65,
+        metalness: 0.0,
+        flatShading: false,
+      });
+
+      const airframeMesh = new THREE.Mesh(geometry, material);
+      airframeMesh.rotation.order = 'YXZ';
+      airframeMesh.rotation.set(0.22, -0.45, 0);
+      scene.add(airframeMesh);
+
+      // 3. Simple Interactive Orbit Controls
+      let isDragging = false;
+      let prevMouseX = 0;
+      let prevMouseY = 0;
+      let targetRotX = 0.22;
+      let targetRotY = -0.45;
+      let targetZoom = 3.4;
+
+      mount.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        prevMouseX = e.clientX;
+        prevMouseY = e.clientY;
+      });
+
+      window.addEventListener('mouseup', () => {
+        isDragging = false;
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const dx = e.clientX - prevMouseX;
+        const dy = e.clientY - prevMouseY;
+        prevMouseX = e.clientX;
+        prevMouseY = e.clientY;
+
+        targetRotY += dx * 0.008;
+        targetRotX += dy * 0.008;
+        targetRotX = Math.max(-1.4, Math.min(1.4, targetRotX));
+      });
+
+      mount.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        targetZoom += e.deltaY * 0.002;
+        targetZoom = Math.max(1.8, Math.min(6.5, targetZoom));
+      }, { passive: false });
+
+      window.addEventListener('resize', () => {
+        camera.aspect = mount.clientWidth / mount.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(mount.clientWidth, mount.clientHeight);
+      });
+
+      // 4. Slider Synchronizer
+      const sliderKeys: (keyof AirframeParams)[] = [
+        'span', 'rootChord', 'tipChord', 'sweepDeg', 'dihedralDeg', 'wingThickness',
+        'wingForwardRatio', 'fuseLength', 'fuseRadius', 'noseLengthRatio',
+        'cabinLengthRatio', 'cabinChubbiness', 'tailSpan', 'tailFinHeight', 'tailFinSweep'
+      ];
+
+      function syncSlidersFromParams(params: AirframeParams) {
+        sliderKeys.forEach((key) => {
+          const input = document.getElementById(`input-${key}`) as HTMLInputElement;
+          const display = document.getElementById(`val-${key}`);
+          if (input && display) {
+            const val = params[key] as number;
+            input.value = val.toString();
+            display.textContent = typeof val === 'number' ? val.toFixed(2) : String(val);
+          }
+        });
+      }
+
+      function readSlidersToParams(): AirframeParams {
+        const out = { ...currentParams };
+        sliderKeys.forEach((key) => {
+          const input = document.getElementById(`input-${key}`) as HTMLInputElement;
+          if (input) {
+            (out as any)[key] = parseFloat(input.value);
+          }
+        });
+        return out;
+      }
+
+      sliderKeys.forEach((key) => {
+        const input = document.getElementById(`input-${key}`) as HTMLInputElement;
+        const display = document.getElementById(`val-${key}`);
+        if (input) {
+          input.addEventListener('input', () => {
+            if (isPlayingLoop) stopLoop();
+            const val = parseFloat(input.value);
+            if (display) display.textContent = val.toFixed(2);
+            (currentParams as any)[key] = val;
+
+            // Update current selected preset as well
+            if (presets[selectedPresetIndex]) {
+              (presets[selectedPresetIndex] as any)[key] = val;
+            }
+
+            updateAirframePositions(geometry, currentParams);
+          });
+        }
+      });
+
+      // 5. Presets List UI
+      const presetsContainer = document.getElementById('presets-container')!;
+      const presetCountEl = document.getElementById('preset-count')!;
+
+      function renderPresetsList() {
+        presetsContainer.innerHTML = '';
+        presetCountEl.textContent = presets.length.toString();
+
+        presets.forEach((p, idx) => {
+          const item = document.createElement('div');
+          item.className = `preset-item ${idx === selectedPresetIndex ? 'active' : ''}`;
+
+          const name = document.createElement('span');
+          name.className = 'preset-name';
+          name.textContent = `Preset ${idx + 1} (${p.span.toFixed(2)}m Span, ${p.fuseLength.toFixed(2)}m Fuse)`;
+
+          const actions = document.createElement('div');
+          actions.className = 'preset-actions';
+
+          if (presets.length > 2) {
+            const delBtn = document.createElement('button');
+            delBtn.className = 'icon-btn';
+            delBtn.title = 'Delete preset';
+            delBtn.textContent = '🗑';
+            delBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              presets.splice(idx, 1);
+              if (selectedPresetIndex >= presets.length) selectedPresetIndex = presets.length - 1;
+              loadPreset(selectedPresetIndex);
+              renderPresetsList();
+            });
+            actions.appendChild(delBtn);
+          }
+
+          item.appendChild(name);
+          item.appendChild(actions);
+
+          item.addEventListener('click', () => {
+            if (isPlayingLoop) stopLoop();
+            loadPreset(idx);
+          });
+
+          presetsContainer.appendChild(item);
+        });
+      }
+
+      function loadPreset(idx: number) {
+        selectedPresetIndex = idx;
+        currentParams = { ...presets[idx]! };
+        syncSlidersFromParams(currentParams);
+        updateAirframePositions(geometry, currentParams);
+        renderPresetsList();
+      }
+
+      // 6. Action Buttons
+      const btnPlayLoop = document.getElementById('btn-play-loop')!;
+      const btnSavePreset = document.getElementById('btn-save-preset')!;
+      const btnExport = document.getElementById('btn-export-code')!;
+
+      function stopLoop() {
+        isPlayingLoop = false;
+        btnPlayLoop.textContent = '▶ Test Morph Loop';
+        btnPlayLoop.classList.remove('playing');
+        document.getElementById('viewport-status')!.textContent = 'Preset Configurator (Editing Manual Design)';
+      }
+
+      function startLoop() {
+        isPlayingLoop = true;
+        loopTimer = 0;
+        loopSourceIdx = 0;
+        loopTargetIdx = (loopSourceIdx + 1) % presets.length;
+        btnPlayLoop.textContent = '⏹ Stop Loop';
+        btnPlayLoop.classList.add('playing');
+        document.getElementById('viewport-status')!.textContent = 'Live Morphing Loop (Testing Continuous Transitions)';
+      }
+
+      btnPlayLoop.addEventListener('click', () => {
+        if (isPlayingLoop) {
+          stopLoop();
+        } else {
+          startLoop();
+        }
+      });
+
+      btnSavePreset.addEventListener('click', () => {
+        const newPreset = readSlidersToParams();
+        // Generate normalized bar chart values reflecting the parameters
+        newPreset.barValues = [
+          Math.min(1, newPreset.span / 2.5),
+          Math.min(1, newPreset.sweepDeg / 30),
+          Math.min(1, newPreset.fuseLength / 2.0),
+          Math.min(1, newPreset.cabinChubbiness - 0.8),
+          Math.min(1, newPreset.tailSpan / 0.8),
+          Math.min(1, newPreset.wingThickness / 0.22),
+        ];
+
+        presets.push(newPreset);
+        selectedPresetIndex = presets.length - 1;
+        renderPresetsList();
+        // Switch to presets tab
+        showTab('presets');
+      });
+
+      // Export Modal
+      const modalBackdrop = document.getElementById('export-modal')!;
+      const modalClose = document.getElementById('modal-close')!;
+      const exportTextarea = document.getElementById('export-textarea') as HTMLTextAreaElement;
+      const btnCopyCode = document.getElementById('btn-copy-code')!;
+
+      btnExport.addEventListener('click', () => {
+        // Generate formatted TypeScript code
+        const code = `/** Predefined mission airframe configurations exported from Configurator. */\nexport const AIRFRAME_PRESETS: AirframeParams[] = ${JSON.stringify(presets, null, 2)};\n`;
+        exportTextarea.value = code;
+        modalBackdrop.classList.add('open');
+      });
+
+      modalClose.addEventListener('click', () => {
+        modalBackdrop.classList.remove('open');
+      });
+
+      btnCopyCode.addEventListener('click', () => {
+        navigator.clipboard.writeText(exportTextarea.value);
+        btnCopyCode.textContent = '✓ Copied to Clipboard!';
+        setTimeout(() => {
+          btnCopyCode.textContent = 'Copy to Clipboard';
+        }, 2000);
+      });
+
+      // Tabs
+      const tabSlidersBtn = document.getElementById('tab-sliders-btn')!;
+      const tabPresetsBtn = document.getElementById('tab-presets-btn')!;
+      const tabSliders = document.getElementById('tab-sliders')!;
+      const tabPresets = document.getElementById('tab-presets')!;
+
+      function showTab(tab: 'sliders' | 'presets') {
+        if (tab === 'sliders') {
+          tabSlidersBtn.classList.add('active');
+          tabPresetsBtn.classList.remove('active');
+          tabSliders.style.display = 'flex';
+          tabPresets.style.display = 'none';
+        } else {
+          tabSlidersBtn.classList.remove('active');
+          tabPresetsBtn.classList.add('active');
+          tabSliders.style.display = 'none';
+          tabPresets.style.display = 'flex';
+        }
+      }
+
+      tabSlidersBtn.addEventListener('click', () => showTab('sliders'));
+      tabPresetsBtn.addEventListener('click', () => showTab('presets'));
+
+      // Initialize
+      syncSlidersFromParams(currentParams);
+      renderPresetsList();
+
+      // 7. Animation Loop
+      let lastTime = performance.now();
+
+      function animate(now: number) {
+        requestAnimationFrame(animate);
+
+        const delta = Math.min((now - lastTime) * 0.001, 0.1);
+        lastTime = now;
+
+        if (isPlayingLoop && presets.length > 1) {
+          loopTimer += delta;
+          const totalCycle = morphDuration + dwellDuration;
+
+          if (loopTimer >= totalCycle) {
+            loopTimer -= totalCycle;
+            loopSourceIdx = loopTargetIdx;
+            loopTargetIdx = (loopTargetIdx + 1) % presets.length;
+          }
+
+          let morphProgress = 0;
+          if (loopTimer < dwellDuration) {
+            morphProgress = 0;
+          } else {
+            morphProgress = (loopTimer - dwellDuration) / morphDuration;
+          }
+
+          const sourceP = presets[loopSourceIdx]!;
+          const targetP = presets[loopTargetIdx]!;
+          currentParams = interpolateParams(sourceP, targetP, morphProgress);
+          updateAirframePositions(geometry, currentParams);
+          syncSlidersFromParams(currentParams);
+        }
+
+        // Camera and rotation lerp
+        airframeMesh.rotation.x += (targetRotX - airframeMesh.rotation.x) * 0.08;
+        airframeMesh.rotation.y += (targetRotY - airframeMesh.rotation.y) * 0.08;
+        camera.position.z += (targetZoom - camera.position.z) * 0.08;
+
+        renderer.render(scene, camera);
+      }
+
+      requestAnimationFrame(animate);
+    </script>
+  </body>
+</html>

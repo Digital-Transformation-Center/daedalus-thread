@@ -1,43 +1,45 @@
 package AirframeArchitecture {
     private import ScalarValues::*;
     private import MissionRequirements::*;
-    private import AerodynamicAnalysis::*;
+
+    // Structural interface definitions
+    port def MechanicalMountPort;
+    port def ControlSignalPort;
 
     part def AirfoilProfile {
-        attribute designation : String; // e.g., "Clark Y", "NACA 2412", "MH 60"
-        attribute maxThicknessPercent : Real; // % of chord (t/c)
-        attribute maxCamberPercent : Real; // % of chord
-        attribute designCL : Real; // optimal cruise CL
+        attribute designation : String;
+        attribute thicknessRatio : Real; // t/c ratio
+        attribute camberRatio : Real;    // camber ratio
+        attribute maxCL : Real;          // maximum clean section lift coefficient
     }
 
     part def WingAssembly {
-        // Geometric parameters driving the CAD model
-        attribute span : Real; // mm
-        attribute rootChord : Real; // mm
-        attribute tipChord : Real; // mm
-        attribute sweepAngle : Real; // degrees
-        attribute dihedralAngle : Real; // degrees
+        // Architectural constraints and budget allocations
+        attribute maxSpanAllocation : Real; // mm
+        attribute targetMassAllocation : Real; // kg
+        attribute servoQuantity : Integer;
 
-        // Linked aerodynamic profile
+        // Sub-elements and interfaces
         part profile : AirfoilProfile;
+        port rootMount : MechanicalMountPort;
+        port servoSignal : ControlSignalPort;
 
-        // Traceability to requirement
-        satisfy reconMissionReq;
+        // Traceability to operational envelope requirements
+        satisfy icarusSpanReq;
+        satisfy icarusWingMassReq;
     }
 
-    // System instance for your current aircraft configuration
-    part uavWing : WingAssembly {
-        attribute :>> span = 1800.0; // 1.8m
-        attribute :>> rootChord = 240.0; // 240mm
-        attribute :>> tipChord = 160.0; // 160mm
-        attribute :>> sweepAngle = 3.5;
-        attribute :>> dihedralAngle = 2.0;
+    // Concrete architectural instance for Icarus Phase 1 baseline
+    part icarusWing : WingAssembly {
+        attribute :>> maxSpanAllocation = 1800.0;
+        attribute :>> targetMassAllocation = 0.65;
+        attribute :>> servoQuantity = 2;
 
         part :>> profile {
-            attribute :>> designation = "NACA 4412";
-            attribute :>> maxThicknessPercent = 12.0;
-            attribute :>> maxCamberPercent = 4.0;
-            attribute :>> designCL = 0.45;
+            attribute :>> designation = "NACA 2412";
+            attribute :>> thicknessRatio = 0.12;
+            attribute :>> camberRatio = 0.02;
+            attribute :>> maxCL = 1.4;
         }
     }
 }

@@ -1,13 +1,24 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import mermaid from 'astro-mermaid';
 
 // https://astro.build/config
 export default defineConfig({
 	site: 'https://digital-transformation-center.github.io',
 	base: '/daedalus-thread',
+	markdown: {
+		remarkPlugins: [remarkMath],
+		rehypePlugins: [rehypeKatex],
+	},
 	integrations: [
+		mermaid(),
 		starlight({
+			customCss: [
+				'katex/dist/katex.min.css',
+			],
 			title: 'Daedalus Thread',
 			logo: {
 				light: './src/assets/daedalus_full.svg',
@@ -15,6 +26,9 @@ export default defineConfig({
 				replacesTitle: true,
 			},
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/Digital-Transformation-Center/daedalus-thread' }],
+			components: {
+				Hero: './src/components/Hero.astro',
+			},
 			sidebar: [
 				{
 					label: 'About',

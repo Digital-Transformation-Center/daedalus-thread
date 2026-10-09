@@ -3,6 +3,8 @@ import { getCollection, render } from 'astro:content';
 import { Badge } from '@astrojs/starlight/components';
 import { Image } from 'astro:assets';
 import SideBySide from './SideBySide.astro';
+import CadViewer from './CadViewer.astro';
+import DigitalThreadFlow from './DigitalThreadFlow.astro';
 
 const allDocs = await getCollection('docs');
 
@@ -57,7 +59,7 @@ const renderedEntries = await Promise.all(
 							)}
 						</div>
 						<h3>{entry.data.title}</h3>
-						<Content components={{ SideBySide, Image, Badge }} />
+						<Content components={{ SideBySide, Image, Badge, CadViewer, DigitalThreadFlow }} />
 					</div>
 					{index < renderedEntries.length - 1 && <hr />}
 				</div>

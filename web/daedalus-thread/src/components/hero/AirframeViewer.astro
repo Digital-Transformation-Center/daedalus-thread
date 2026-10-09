@@ -1,0 +1,318 @@
+---
+/**
+ * AirframeViewer.astro
+ * Hosts the Three.js parametric 3D airframe canvas floating borderless on the page background.
+ */
+---
+
+<div class="dt-viewer-container" id="airframe-viewer-mount">
+  <!-- Tactical HUD Viewport Corner Accents -->
+  <div class="dt-hud-bracket dt-hud-tl" aria-hidden="true"></div>
+  <div class="dt-hud-bracket dt-hud-tr" aria-hidden="true"></div>
+  <div class="dt-hud-bracket dt-hud-bl" aria-hidden="true"></div>
+  <div class="dt-hud-bracket dt-hud-br" aria-hidden="true"></div>
+
+  <!-- Top HUD Telemetry Bar -->
+  <div class="dt-hud-top-bar">
+    <div class="dt-hud-callsign-tag">
+      <span class="dt-hud-beacon"></span>
+      <span id="dt-hud-callsign">DT-ISR-280</span>
+      <span class="dt-hud-badge-sep">//</span>
+      <span id="dt-hud-mission" class="dt-hud-mission-name">ISR LONG-ENDURANCE</span>
+    </div>
+    <button class="dt-hud-wire-btn" id="dt-toggle-wireframe" type="button" title="Toggle CAD Wireframe Mode">
+      <span class="dt-hud-btn-dot"></span>
+      <span id="dt-wire-label">CAD MESH</span>
+    </button>
+  </div>
+
+  <!-- Mission Role Selector Buttons -->
+  <div class="dt-hud-presets-bar">
+    <button class="dt-preset-btn active" data-preset="0" type="button">
+      <span class="dt-preset-idx">01</span>
+      <span class="dt-preset-txt">ISR-280</span>
+    </button>
+    <button class="dt-preset-btn" data-preset="1" type="button">
+      <span class="dt-preset-idx">02</span>
+      <span class="dt-preset-txt">DASH-170</span>
+    </button>
+    <button class="dt-preset-btn" data-preset="2" type="button">
+      <span class="dt-preset-idx">03</span>
+      <span class="dt-preset-txt">CARGO-170</span>
+    </button>
+    <button class="dt-preset-btn" data-preset="5" type="button">
+      <span class="dt-preset-idx">04</span>
+      <span class="dt-preset-txt">SWARM-090</span>
+    </button>
+  </div>
+</div>
+
+<script>
+  import { AirframeCanvasController } from './AirframeCanvas';
+  import type { AirframeParams } from './AirframePresets';
+
+  function initViewer() {
+    const mount = document.getElementById('airframe-viewer-mount');
+    if (!mount || mount.dataset.initialized) return;
+    mount.dataset.initialized = 'true';
+
+    const controller = new AirframeCanvasController(mount);
+
+    // Callbacks to update HUD callsign & active preset pill
+    const callsignEl = document.getElementById('dt-hud-callsign');
+    const missionEl = document.getElementById('dt-hud-mission');
+    const presetBtns = mount.querySelectorAll<HTMLButtonElement>('.dt-preset-btn');
+    const wireBtn = document.getElementById('dt-toggle-wireframe');
+    const wireLabel = document.getElementById('dt-wire-label');
+
+    controller.setOnPresetChange((preset: AirframeParams, index: number) => {
+      if (callsignEl && preset.callsign) {
+        callsignEl.textContent = preset.callsign;
+      }
+      if (missionEl && preset.missionName) {
+        missionEl.textContent = preset.missionName.toUpperCase();
+      }
+
+      presetBtns.forEach((btn) => {
+        const pIdx = parseInt(btn.dataset.preset || '-1', 10);
+        if (pIdx === index) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+    });
+
+    // Preset button clicks
+    presetBtns.forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const pIdx = parseInt(btn.dataset.preset || '0', 10);
+        controller.selectPreset(pIdx);
+      });
+    });
+
+    // Wireframe toggle click
+    if (wireBtn && wireLabel) {
+      wireBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isActive = controller.toggleWireframe();
+        wireBtn.classList.toggle('active', isActive);
+        wireLabel.textContent = isActive ? 'CAD WIRE' : 'CAD MESH';
+      });
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initViewer);
+  } else {
+    initViewer();
+  }
+  document.addEventListener('astro:page-load', initViewer);
+</script>
+
+<style>
+  .dt-viewer-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 420px;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    overflow: visible;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+  }
+
+  canvas {
+    outline: none;
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  /* Tactical Viewport Reticle Brackets */
+  .dt-hud-bracket {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    pointer-events: none;
+    z-index: 10;
+    border-color: rgba(56, 189, 248, 0.4);
+  }
+
+  :root[data-theme='light'] .dt-hud-bracket {
+    border-color: rgba(2, 132, 199, 0.4);
+  }
+
+  .dt-hud-tl {
+    top: 0.5rem;
+    left: 0.5rem;
+    border-top: 2px solid;
+    border-left: 2px solid;
+  }
+  .dt-hud-tr {
+    top: 0.5rem;
+    right: 0.5rem;
+    border-top: 2px solid;
+    border-right: 2px solid;
+  }
+  .dt-hud-bl {
+    bottom: 0.5rem;
+    left: 0.5rem;
+    border-bottom: 2px solid;
+    border-left: 2px solid;
+  }
+  .dt-hud-br {
+    bottom: 0.5rem;
+    right: 0.5rem;
+    border-bottom: 2px solid;
+    border-right: 2px solid;
+  }
+
+  /* Top HUD Bar */
+  .dt-hud-top-bar {
+    position: absolute;
+    top: 0.85rem;
+    left: 1.25rem;
+    right: 1.25rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 20;
+    pointer-events: auto;
+  }
+
+  .dt-hud-callsign-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.25rem 0.65rem;
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: 0.35rem;
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #e2e8f0;
+    backdrop-filter: blur(8px);
+  }
+
+  :root[data-theme='light'] .dt-hud-callsign-tag {
+    background: rgba(248, 250, 252, 0.9);
+    border-color: rgba(2, 132, 199, 0.3);
+    color: #0f172a;
+  }
+
+  .dt-hud-beacon {
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 50%;
+    background: #38bdf8;
+    box-shadow: 0 0 6px #38bdf8;
+  }
+
+  .dt-hud-badge-sep {
+    color: rgba(56, 189, 248, 0.5);
+  }
+
+  .dt-hud-mission-name {
+    font-size: 0.68rem;
+    color: #38bdf8;
+    font-weight: 600;
+  }
+
+  :root[data-theme='light'] .dt-hud-mission-name {
+    color: #0284c7;
+  }
+
+  /* Wireframe Toggle Button */
+  .dt-hud-wire-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.6rem;
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 0.35rem;
+    color: #94a3b8;
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.68rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    backdrop-filter: blur(8px);
+  }
+
+  .dt-hud-wire-btn:hover {
+    border-color: #38bdf8;
+    color: #38bdf8;
+  }
+
+  .dt-hud-wire-btn.active {
+    background: rgba(56, 189, 248, 0.15);
+    border-color: #38bdf8;
+    color: #38bdf8;
+  }
+
+  .dt-hud-btn-dot {
+    width: 0.35rem;
+    height: 0.35rem;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  /* Bottom Presets Bar */
+  .dt-hud-presets-bar {
+    position: absolute;
+    bottom: 0.85rem;
+    left: 1.25rem;
+    display: flex;
+    gap: 0.35rem;
+    z-index: 20;
+    pointer-events: auto;
+  }
+
+  .dt-preset-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.25rem 0.55rem;
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 0.35rem;
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.66rem;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    backdrop-filter: blur(8px);
+  }
+
+  :root[data-theme='light'] .dt-preset-btn {
+    background: rgba(248, 250, 252, 0.9);
+    border-color: rgba(148, 163, 184, 0.3);
+    color: #475569;
+  }
+
+  .dt-preset-btn:hover {
+    border-color: #38bdf8;
+    color: #e2e8f0;
+  }
+
+  .dt-preset-btn.active {
+    background: rgba(56, 189, 248, 0.15);
+    border-color: #38bdf8;
+    color: #38bdf8;
+    font-weight: 700;
+  }
+
+  .dt-preset-idx {
+    opacity: 0.65;
+    font-size: 0.58rem;
+  }
+</style>
+
