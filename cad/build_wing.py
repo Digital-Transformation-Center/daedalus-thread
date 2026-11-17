@@ -25,6 +25,7 @@ if SCRIPT_DIR not in sys.path:
 import components.airfoil as c_airfoil
 import components.wing_body as c_wing_body
 import components.aileron as c_aileron
+import components.servo_model as c_servo_model
 import components.servo_pocket as c_servo_pocket
 import components.motor_mount as c_motor_mount
 import components.wire_channels as c_wire_channels
@@ -33,6 +34,7 @@ import components.wire_channels as c_wire_channels
 importlib.reload(c_airfoil)
 importlib.reload(c_wing_body)
 importlib.reload(c_aileron)
+importlib.reload(c_servo_model)
 importlib.reload(c_servo_pocket)
 importlib.reload(c_motor_mount)
 importlib.reload(c_wire_channels)
@@ -82,6 +84,7 @@ def update_spreadsheet_definitions(sheet):
         ("A15", "ServoSpanOffsetRatio", "B15", "ServoSpanOffsetRatio", "0.05"),
         ("A16", "MotorSpanY", "B16", "MotorSpanY", "87.5"),
         ("A17", "MotorProtrusion", "B17", "MotorProtrusion", "12.0"),
+        ("A18", "ServoTolerance", "B18", "ServoTolerance", "0.12"),
     ]
     for lbl_cell, lbl_val, val_cell, alias, val_str in param_definitions:
         try:
@@ -142,6 +145,7 @@ def generate_wing(params=None, output_dir=None, export_step=False, export_stl=Fa
                 "tab_count": get_param(sheet, "HingeTabCount", 3),
                 "servo_type": str(get_param(sheet, "ServoType", "HeeWing_FX5G")).strip("'\""),
                 "servo_span_offset_ratio": get_param(sheet, "ServoSpanOffsetRatio", 0.05),
+                "servo_tolerance": get_param(sheet, "ServoTolerance", 0.12),
                 "motor_span_y": get_param(sheet, "MotorSpanY", 87.5),
                 "motor_protrusion": get_param(sheet, "MotorProtrusion", 12.0),
             }
@@ -163,6 +167,7 @@ def generate_wing(params=None, output_dir=None, export_step=False, export_stl=Fa
                 "tab_count": 3,
                 "servo_type": "HeeWing_FX5G",
                 "servo_span_offset_ratio": 0.05,
+                "servo_tolerance": 0.12,
                 "motor_span_y": 87.5,
                 "motor_protrusion": 12.0,
             }
@@ -191,6 +196,7 @@ def generate_wing(params=None, output_dir=None, export_step=False, export_stl=Fa
 
     servo_type = str(params.get("servo_type", "HeeWing_FX5G")).strip("'\"")
     servo_span_offset_ratio = float(params.get("servo_span_offset_ratio", 0.05))
+    servo_tolerance = float(params.get("servo_tolerance", 0.12))
     motor_span_y = float(params.get("motor_span_y", 87.5))
     motor_protrusion = float(params.get("motor_protrusion", 12.0))
 
@@ -213,7 +219,7 @@ def generate_wing(params=None, output_dir=None, export_step=False, export_stl=Fa
     root_exit_x = wing_geom.get_max_thickness_x(0.0) + 20.0
 
     # Dynamic Servo Placement (top-surface side mount, clamped to cable reach)
-    servo_pocket_gen = ServoPocket(servo_type=servo_type)
+    servo_pocket_gen = ServoPocket(servo_type=servo_type, tolerance=servo_tolerance)
     max_servo_wire = servo_pocket_gen.specs["max_wire_length"]
     y_servo = (aileron_start + servo_span_offset_ratio * (aileron_end - aileron_start)) * wing_geom.half_span
     le_servo = wing_geom.get_le_position(y_servo)
@@ -244,10 +250,11 @@ def generate_wing(params=None, output_dir=None, export_step=False, export_stl=Fa
         motor_mount_gen.build_clamshell_brackets(wing_geom, raw_skin_solid, wing_solid)
     )
 
-    # 2. Top Side-Mounted Clip-In Servo Pocket + Snap Tabs + Feed-Through
+    # 2. Top Side-Mounted Friction-Fit Servo Pocket + Feed-Through
     servo_cutter, snap_tabs, servo_feed_xy, servo_info = servo_pocket_gen.create_geometry(
         x_servo, y_servo, wing_geom
     )
+    servo_ref_solid = servo_pocket_gen.build_nominal_servo(x_servo, y_servo, wing_geom)
 
     # 3. Bottom-Surface Press-Fit Keyhole Wire Channels
     wire_gen = WireChannelGenerator()
@@ -258,11 +265,15 @@ def generate_wing(params=None, output_dir=None, export_step=False, export_stl=Fa
         root_exit_x=root_exit_x,
         servo_wire_w=servo_pocket_gen.specs["wire_width"],
         servo_wire_t=servo_pocket_gen.specs["wire_thickness"],
+        esc_taper_start_x=motor_info["esc_taper_start_x_mm"],
+        esc_recess_depth=motor_mount_gen.recess_depth,
+        esc_z_c=motor_info["z_center_mm"],
     )
 
-    # Apply electronics pockets, snap tabs, and bottom press-fit channels to wing
+    # Apply electronics pockets and bottom press-fit channels to wing
     wing_solid = wing_solid.cut(servo_cutter)
-    wing_solid = wing_solid.fuse(snap_tabs)
+    if snap_tabs is not None:
+        wing_solid = wing_solid.fuse(snap_tabs)
     wing_solid = wing_solid.cut(wire_cutter)
 
     # Add/Update Document Objects
@@ -289,6 +300,12 @@ def generate_wing(params=None, output_dir=None, export_step=False, export_stl=Fa
         motor_bot_obj = doc.addObject("Part::Feature", "MBSE_MotorMount_Bottom")
     motor_bot_obj.Shape = motor_bot_solid
     motor_bot_obj.Label = "MotorMount_Bottom"
+
+    servo_ref_obj = doc.getObject("MBSE_Servo_Reference")
+    if not servo_ref_obj:
+        servo_ref_obj = doc.addObject("Part::Feature", "MBSE_Servo_Reference")
+    servo_ref_obj.Shape = servo_ref_solid
+    servo_ref_obj.Label = "Servo_Reference"
 
     doc.recompute()
 

@@ -106,7 +106,8 @@ def test_motor_mount_esc_cavity_and_skin_conformance():
         "assert bot.common(esc).Volume < 1e-3; "
         "assert top.common(aft).cut(raw).Volume < 1e-2; "
         "assert bot.common(aft).cut(raw).Volume < 1e-2; "
-        "assert abs(exit_xy[1] - (yc - mm.saddle_half_width)) < 1e-3; "
+        "assert abs(exit_xy[0] - (le.x + mm.saddle_length + 0.5)) < 1e-3; "
+        "assert abs(exit_xy[1] - yc) < 1e-3; "
         "print('MOTOR_MOUNT_OK')"
     )
     proc = subprocess.run([freecad_cmd, "-c", check_script], capture_output=True, text=True, check=True)

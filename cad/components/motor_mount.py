@@ -119,51 +119,99 @@ class MotorMount:
         wire = Part.Wire(edges)
         return Part.Face(wire)
 
+    def _build_esc_rear_wall_ports(
+        self,
+        wing_geom,
+        x_esc_end,
+        y_c,
+        z_c,
+        esc_power_t=1.4,
+        esc_power_w=3.2,
+        esc_data_t=0.7,
+        esc_data_w=1.7,
+    ):
+        """Builds two individual rear ESC wall ports on opposite sides of the clamping peg.
+
+        The ports sit strictly above z_bot + recess_depth so the bottom shell stays intact.
+        """
+        x_front = x_esc_end - 1.5
+        x_back = x_esc_end + self.bay_wall_t + 1.5
+        y_pwr = y_c - 5.0
+        y_dat = y_c + 5.0
+
+        ports = []
+        for y_p, track_w, slot_h in (
+            (y_pwr, esc_power_t, esc_power_w),
+            (y_dat, esc_data_t, esc_data_w),
+        ):
+            zb_p, _ = wing_geom.get_surface_z(x_esc_end, y_p)
+            z_floor = zb_p + self.recess_depth
+            z_ceil = max(z_c + 0.5, z_floor + slot_h + 1.0)
+            ports.append(
+                Part.makeBox(
+                    x_back - x_front,
+                    track_w,
+                    z_ceil - z_floor,
+                    App.Vector(x_front, y_p - track_w / 2.0, z_floor),
+                )
+            )
+        return ports[0].fuse(ports[1])
+
+    def _build_smooth_recess_solid(
+        self, wing_geom, x_start, x_end, y0, y1, is_upper, num_pts=40
+    ):
+        """Builds a smooth BSplineSurface recess solid between y0 and y1."""
+        wires = []
+        for y in (y0, y1):
+            spline_pts = []
+            for i in range(num_pts):
+                # Cosine clustering gives dense sampling near the high-curvature leading edge
+                t = 0.5 * (1.0 - math.cos(math.pi * i / (num_pts - 1)))
+                xi = x_start + t * (x_end - x_start)
+                zb, zt = wing_geom.get_surface_z(xi, y)
+                z_off = (zt - self.recess_depth) if is_upper else (zb + self.recess_depth)
+                spline_pts.append(App.Vector(xi, y, z_off))
+
+            bs = Part.BSplineCurve()
+            bs.interpolate(spline_pts)
+            z_ext = (
+                (max(p.z for p in spline_pts) + 8.0)
+                if is_upper
+                else (min(p.z for p in spline_pts) - 8.0)
+            )
+            p_start = spline_pts[0]
+            p_end = spline_pts[-1]
+            p_ext_end = App.Vector(p_end.x, y, z_ext)
+            p_ext_start = App.Vector(p_start.x, y, z_ext)
+            wires.append(
+                Part.Wire([
+                    bs.toShape(),
+                    Part.LineSegment(p_end, p_ext_end).toShape(),
+                    Part.LineSegment(p_ext_end, p_ext_start).toShape(),
+                    Part.LineSegment(p_ext_start, p_start).toShape(),
+                ])
+            )
+        return Part.makeLoft(wires, True)
+
     def build_wing_saddle_cutter(self, wing_geom):
-        """Builds the cutter for the 3D skin saddle, central ESC bay, peg bore, and wire trench."""
+        """Builds the cutter for the 3D skin saddle, central ESC bay, and peg bore."""
         x_face, y_c, z_c, le = self.get_mount_frame(wing_geom)
         y0 = y_c - self.saddle_half_width
         y1 = y_c + self.saddle_half_width
         x_saddle_end = le.x + self.saddle_length
         x_esc_end = self._esc_end_x(x_face)
 
-        # 1. 3D spanwise upper & lower skin saddle recesses following sweep/dihedral/taper
-        upper_wires = []
-        lower_wires = []
-        n_pts = 10
+        # 1. Smooth 3D spanwise upper & lower skin saddle recesses following sweep/dihedral/taper
         x_start = min(
             wing_geom.get_le_position(y0).x,
             wing_geom.get_le_position(y1).x,
         ) - 1.0
-        for i in range(n_pts):
-            t = i / (n_pts - 1)
-            xi = x_start + t * (x_saddle_end - x_start)
-            zb0, zt0 = wing_geom.get_surface_z(xi, y0)
-            zb1, zt1 = wing_geom.get_surface_z(xi, y1)
-            z_top_ceil = max(zt0, zt1) + 6.0
-            z_bot_floor = min(zb0, zb1) - 6.0
-
-            upper_wires.append(
-                Part.Wire(Part.makePolygon([
-                    App.Vector(xi, y0, zt0 - self.recess_depth),
-                    App.Vector(xi, y1, zt1 - self.recess_depth),
-                    App.Vector(xi, y1, z_top_ceil),
-                    App.Vector(xi, y0, z_top_ceil),
-                    App.Vector(xi, y0, zt0 - self.recess_depth),
-                ]))
-            )
-            lower_wires.append(
-                Part.Wire(Part.makePolygon([
-                    App.Vector(xi, y0, z_bot_floor),
-                    App.Vector(xi, y1, z_bot_floor),
-                    App.Vector(xi, y1, zb1 + self.recess_depth),
-                    App.Vector(xi, y0, zb0 + self.recess_depth),
-                    App.Vector(xi, y0, z_bot_floor),
-                ]))
-            )
-
-        upper_recess = Part.makeLoft(upper_wires, True, True)
-        lower_recess = Part.makeLoft(lower_wires, True, True)
+        upper_recess = self._build_smooth_recess_solid(
+            wing_geom, x_start, x_saddle_end, y0, y1, is_upper=True
+        )
+        lower_recess = self._build_smooth_recess_solid(
+            wing_geom, x_start, x_saddle_end, y0, y1, is_upper=False
+        )
 
         # 2. Central through-wing ESC housing bay cutout
         bay_hw = self._bay_half_width()
@@ -184,22 +232,10 @@ class MotorMount:
             App.Vector(0, 0, 1),
         )
 
-        # 4. Inboard sub-housing wire trench above the lower skin flange
-        x_trench_start = x_esc_end - 9.0
-        x_trench_end = x_esc_end + 0.5
-        z_bot_tr, _ = wing_geom.get_surface_z(0.5 * (x_trench_start + x_trench_end), y0)
-        wire_trench = Part.makeBox(
-            x_trench_end - x_trench_start,
-            bay_hw + 1.5,
-            (z_bot_tr + self.recess_depth + 3.0) - (z_bot_tr - 3.0),
-            App.Vector(x_trench_start, y0 - 0.5, z_bot_tr - 3.0),
-        )
-
         cutter = (
             upper_recess.fuse(lower_recess)
             .fuse(bay_slot)
             .fuse(peg_bore)
-            .fuse(wire_trench)
         )
         return cutter
 
@@ -329,8 +365,18 @@ class MotorMount:
 
         # 5. Rear through-wing clamping peg on top_bracket + countersunk screw hole on bottom_bracket
         x_peg = le.x + self.peg_offset_from_le
+        z_bots_peg = []
+        z_tops_peg = []
+        for dx in (-2.5, 0.0, 2.5):
+            for dy in (-2.5, 0.0, 2.5):
+                zb, zt = wing_geom.get_surface_z(x_peg + dx, y_c + dy)
+                z_bots_peg.append(zb)
+                z_tops_peg.append(zt)
+        z_bot_peg_min = min(z_bots_peg)
+        z_bot_peg_max = max(z_bots_peg)
         z_bot_peg, z_top_peg = wing_geom.get_surface_z(x_peg, y_c)
-        peg_bottom_z = z_bot_peg + 1.5
+
+        peg_bottom_z = z_bot_peg_max + self.recess_depth + 0.15
         peg_top_z = z_top_peg - 0.5
         peg_solid = Part.makeCylinder(
             self.peg_dia / 2.0,
@@ -346,41 +392,42 @@ class MotorMount:
         )
         top_bracket = top_bracket.fuse(peg_solid).cut(peg_pilot)
 
-        # Remove any wing peg-bore pillar above the lower skin flange on bottom_bracket
+        # Remove the entire wing peg-bore pillar above the lower skin flange on bottom_bracket
         peg_pillar_clear = Part.makeCylinder(
             (self.peg_dia + 0.6) / 2.0,
             30.0,
-            App.Vector(x_peg, y_c, z_bot_peg + self.recess_depth + 0.1),
+            App.Vector(x_peg, y_c, z_bot_peg_min + self.recess_depth),
             App.Vector(0, 0, 1),
         )
+        screw_r = 0.9
         screw_clear = Part.makeCylinder(
-            0.9,
-            self.recess_depth + 2.0,
-            App.Vector(x_peg, y_c, z_bot_peg - 1.0),
+            screw_r,
+            (z_bot_peg_max + self.recess_depth + 1.5) - (z_bot_peg_min - 2.0),
+            App.Vector(x_peg, y_c, z_bot_peg_min - 2.0),
             App.Vector(0, 0, 1),
         )
+        # 45-deg countersink extending strictly below z_bot_peg_min so the rim is never clipped
+        csk_top_z = z_bot_peg + 0.9
+        csk_bot_z = z_bot_peg_min - 1.5
+        csk_bot_r = screw_r + (csk_top_z - csk_bot_z)
         screw_head = Part.makeCone(
-            1.75,
-            0.9,
-            1.0,
-            App.Vector(x_peg, y_c, z_bot_peg - 0.1),
+            csk_bot_r,
+            screw_r,
+            csk_top_z - csk_bot_z,
+            App.Vector(x_peg, y_c, csk_bot_z),
             App.Vector(0, 0, 1),
         )
         bottom_bracket = bottom_bracket.cut(
             peg_pillar_clear.fuse(screw_clear).fuse(screw_head)
         )
 
-        # 6. Enclosed sub-housing ESC wire exit on the aft-inboard side (keeps outer bottom skin smooth)
-        exit_x = x_esc_end - 4.5
-        exit_y = y0
-        z_bot_exit, _ = wing_geom.get_surface_z(exit_x, exit_y)
-        inner_channel = Part.makeBox(
-            9.0,
-            (y_c - self.esc_cavity_width / 2.0 + 2.0) - (y0 - 0.5),
-            z_c - (z_bot_exit + 1.2),
-            App.Vector(exit_x - 4.5, y0 - 0.5, z_bot_exit + 1.2),
-        )
-        bottom_bracket = bottom_bracket.cut(inner_channel)
+        # 6. Individual rear ESC wall ports on opposite sides of the clamping peg (bottom shell uncut)
+        x_saddle_end = le.x + self.saddle_length
+        rear_ports = self._build_esc_rear_wall_ports(wing_geom, x_esc_end, y_c, z_c)
+        bottom_bracket = bottom_bracket.cut(rear_ports)
+
+        exit_x = x_saddle_end + 0.5
+        exit_y = y_c
 
         info = {
             "x_face_mm": round(x_face, 2),
@@ -388,6 +435,10 @@ class MotorMount:
             "z_center_mm": round(z_c, 2),
             "peg_x_mm": round(x_peg, 2),
             "esc_cavity_depth_mm": round(self.esc_cavity_depth, 2),
+            "esc_taper_start_x_mm": round(x_esc_end - 1.5, 2),
+            "esc_saddle_end_x_mm": round(x_saddle_end, 2),
+            "esc_power_y_mm": round(y_c - 5.0, 2),
+            "esc_data_y_mm": round(y_c + 5.0, 2),
             "esc_wire_exit_xy_mm": [round(exit_x, 2), round(exit_y, 2)],
         }
         return top_bracket, bottom_bracket, (exit_x, exit_y), info
