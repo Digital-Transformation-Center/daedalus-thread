@@ -99,7 +99,7 @@ def test_motor_mount_esc_cavity_and_skin_conformance():
         "mm.esc_cavity_width, mm.esc_cavity_height, "
         "App.Vector(xf + mm.front_bulkhead_t, yc - mm.esc_cavity_width / 2.0, zc - mm.esc_cavity_height / 2.0)"
         "); "
-        "aft = Part.makeBox(40.0, 40.0, 60.0, App.Vector(le.x + 18.0, yc - 20.0, zc - 30.0)); "
+        "aft = Part.makeBox(20.0, 40.0, 60.0, App.Vector(le.x + 36.0, yc - 20.0, zc - 30.0)); "
         "assert rec.isValid() and top.isValid() and bot.isValid(); "
         "assert rec.common(esc).Volume < 1e-3; "
         "assert top.common(esc).Volume < 1e-3; "

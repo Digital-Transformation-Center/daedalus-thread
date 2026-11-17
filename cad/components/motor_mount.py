@@ -11,13 +11,13 @@ class MotorMount:
         self,
         span_y=87.5,
         protrusion=12.0,
-        nose_width=25.0,
+        nose_width=26.0,
         nose_height=20.0,
+        nose_corner_radius=3.0,
         hole_spacing_y=21.0,
         hole_spacing_z=12.0,
         pilot_dia=1.25,
         screw_depth=6.0,
-        nub_radius=2.25,
         saddle_length=44.0,
         saddle_half_width=14.0,
         recess_depth=1.8,
@@ -36,11 +36,11 @@ class MotorMount:
         self.protrusion = float(protrusion)
         self.nose_width = float(nose_width)
         self.nose_height = float(nose_height)
+        self.nose_corner_radius = float(nose_corner_radius)
         self.hole_spacing_y = float(hole_spacing_y)
         self.hole_spacing_z = float(hole_spacing_z)
         self.pilot_dia = float(pilot_dia)
         self.screw_depth = float(screw_depth)
-        self.nub_radius = float(nub_radius)
         self.saddle_length = float(saddle_length)
         self.saddle_half_width = float(saddle_half_width)
         self.recess_depth = float(recess_depth)
@@ -73,42 +73,51 @@ class MotorMount:
         """Returns the aft X coordinate of the internal ESC cavity."""
         return x_face + self.esc_cavity_depth
 
-    def _make_rounded_rect_wire(self, x, y_center, z_center, width, height, radius=4.0, n_arc=6):
-        """Creates a closed rounded-rectangle wire in the YZ plane at X = x."""
+    def _make_rounded_rect_face(self, x, y_center, z_center, width, height, radius=3.0):
+        """Creates a planar rounded-rectangle face in the YZ plane at X = x."""
         hy = width / 2.0
         hz = height / 2.0
         r = min(radius, hy - 0.5, hz - 0.5)
-        corners = [
-            (y_center + hy - r, z_center + hz - r, 0.0, math.pi / 2.0),
-            (y_center - hy + r, z_center + hz - r, math.pi / 2.0, math.pi),
-            (y_center - hy + r, z_center - hz + r, math.pi, 1.5 * math.pi),
-            (y_center + hy - r, z_center - hz + r, 1.5 * math.pi, 2.0 * math.pi),
-        ]
-        pts = []
-        for cy, cz, a0, a1 in corners:
-            for i in range(n_arc):
-                ang = a0 + (a1 - a0) * (i / (n_arc - 1))
-                pts.append(App.Vector(x, cy + r * math.cos(ang), cz + r * math.sin(ang)))
-        pts.append(pts[0])
-        return Part.Wire(Part.makePolygon(pts))
 
-    def _make_wing_section_wire(self, wing_geom, x, y0, y1, n_span=9):
-        """Samples the exact upper and lower airfoil contour across [y0, y1] at X = x."""
-        upper_pts = []
-        lower_pts = []
-        for i in range(n_span):
-            t = i / (n_span - 1)
-            yi = y0 + t * (y1 - y0)
-            zb, zt = wing_geom.get_surface_z(x, yi)
-            # Ensure non-degenerate thickness near the leading edge
-            if zt - zb < 0.2:
-                z_mid = 0.5 * (zb + zt)
-                zb = z_mid - 0.1
-                zt = z_mid + 0.1
-            upper_pts.append(App.Vector(x, yi, zt))
-            lower_pts.append(App.Vector(x, yi, zb))
-        pts = upper_pts + list(reversed(lower_pts)) + [upper_pts[0]]
-        return Part.Wire(Part.makePolygon(pts))
+        # Build 4 corner arcs and 4 straight edges so the extrusion uses exact planes/cylinders
+        p_tr_v = App.Vector(x, y_center + hy, z_center + hz - r)
+        p_tr_h = App.Vector(x, y_center + hy - r, z_center + hz)
+        p_tl_h = App.Vector(x, y_center - hy + r, z_center + hz)
+        p_tl_v = App.Vector(x, y_center - hy, z_center + hz - r)
+        p_bl_v = App.Vector(x, y_center - hy, z_center - hz + r)
+        p_bl_h = App.Vector(x, y_center - hy + r, z_center - hz)
+        p_br_h = App.Vector(x, y_center + hy - r, z_center - hz)
+        p_br_v = App.Vector(x, y_center + hy, z_center - hz + r)
+
+        s2 = math.sqrt(0.5)
+        edges = [
+            Part.Arc(
+                p_tr_v,
+                App.Vector(x, y_center + hy - r + r * s2, z_center + hz - r + r * s2),
+                p_tr_h,
+            ).toShape(),
+            Part.LineSegment(p_tr_h, p_tl_h).toShape(),
+            Part.Arc(
+                p_tl_h,
+                App.Vector(x, y_center - hy + r - r * s2, z_center + hz - r + r * s2),
+                p_tl_v,
+            ).toShape(),
+            Part.LineSegment(p_tl_v, p_bl_v).toShape(),
+            Part.Arc(
+                p_bl_v,
+                App.Vector(x, y_center - hy + r - r * s2, z_center - hz + r - r * s2),
+                p_bl_h,
+            ).toShape(),
+            Part.LineSegment(p_bl_h, p_br_h).toShape(),
+            Part.Arc(
+                p_br_h,
+                App.Vector(x, y_center + hy - r + r * s2, z_center - hz + r - r * s2),
+                p_br_v,
+            ).toShape(),
+            Part.LineSegment(p_br_v, p_tr_v).toShape(),
+        ]
+        wire = Part.Wire(edges)
+        return Part.Face(wire)
 
     def build_wing_saddle_cutter(self, wing_geom):
         """Builds the cutter for the 3D skin saddle, central ESC bay, peg bore, and wire trench."""
@@ -195,65 +204,50 @@ class MotorMount:
         return cutter
 
     def _build_skin_conforming_outer_solid(self, wing_geom, raw_wing_solid, x_face, y_c, z_c, le):
-        """Builds the outer clamshell envelope matching the exact wing skin over the saddle."""
+        """Builds the outer clamshell envelope: straight rounded-rect motor nose + exact wing skin."""
         y0 = y_c - self.saddle_half_width
         y1 = y_c + self.saddle_half_width
         x_saddle_end = le.x + self.saddle_length
-        x_blend = le.x + 5.0
 
-        # Exact wing skin volume over [x_blend, x_saddle_end] x [y0, y1]
+        # Exact wing skin volume over [le.x - 1.0, x_saddle_end] x [y0, y1]
+        x_skin_start = min(
+            wing_geom.get_le_position(y0).x,
+            wing_geom.get_le_position(y1).x,
+        ) - 1.0
         saddle_mask = Part.makeBox(
-            x_saddle_end - x_blend,
+            x_saddle_end - x_skin_start,
             2.0 * self.saddle_half_width,
             80.0,
-            App.Vector(x_blend, y0, z_c - 40.0),
+            App.Vector(x_skin_start, y0, z_c - 40.0),
         )
         wing_skin_shell = raw_wing_solid.common(saddle_mask)
 
-        # Smooth aerodynamic nose fairing from front motor face to x_blend + 1.0 mm
-        w_front = self._make_rounded_rect_wire(
-            x_face, y_c, z_c, self.nose_width, self.nose_height, radius=4.5
+        # Straight rounded-rectangle motor mount block extending back until it merges into the wing skin
+        nose_face = self._make_rounded_rect_face(
+            x_face, y_c, z_c, self.nose_width, self.nose_height, radius=self.nose_corner_radius
         )
-        zb_le, zt_le = wing_geom.get_surface_z(le.x + 1.5, y_c)
-        mid_h = max(self.nose_height * 0.85, (zt_le - zb_le) + 4.0)
-        mid_w = 0.5 * (self.nose_width + 2.0 * self.saddle_half_width)
-        w_mid = self._make_rounded_rect_wire(
-            le.x, y_c, z_c, mid_w, mid_h, radius=3.0
-        )
-        w_blend = self._make_wing_section_wire(wing_geom, x_blend + 1.0, y0, y1)
-        nose_fairing = Part.makeLoft([w_front, w_mid, w_blend], True, False)
+        extrude_len = self.protrusion + min(35.0, self.saddle_length - 4.0)
+        nose_block = nose_face.extrude(App.Vector(extrude_len, 0, 0))
 
-        return nose_fairing.fuse(wing_skin_shell)
+        return nose_block.fuse(wing_skin_shell)
 
-    def _add_motor_bosses(self, shell, x_face, y_c, z_c):
-        """Fuses 4 corner screw-boss nubs and returns their pilot hole cutters."""
+    def _make_pilot_holes(self, x_face, y_c, z_c):
+        """Creates the 4 corner motor-plate pilot hole cutters."""
         dy = self.hole_spacing_y / 2.0
         dz = self.hole_spacing_z / 2.0
         x_dir = App.Vector(1, 0, 0)
-        nub_len = self.protrusion + 2.0
-        taper_len = 8.0
-
         pilot_holes = []
         for sy in (-1.0, 1.0):
             for sz in (-1.0, 1.0):
-                hy = y_c + sy * dy
-                hz = z_c + sz * dz
-                nub_cyl = Part.makeCylinder(
-                    self.nub_radius, nub_len, App.Vector(x_face, hy, hz), x_dir
-                )
-                nub_cone = Part.makeCone(
-                    self.nub_radius, 0.5, taper_len, App.Vector(x_face + nub_len, hy, hz), x_dir
-                )
-                shell = shell.fuse(nub_cyl).fuse(nub_cone)
                 pilot_holes.append(
                     Part.makeCylinder(
                         self.pilot_dia / 2.0,
                         self.screw_depth + 0.5,
-                        App.Vector(x_face - 0.5, hy, hz),
+                        App.Vector(x_face - 0.5, y_c + sy * dy, z_c + sz * dz),
                         x_dir,
                     )
                 )
-        return shell, pilot_holes
+        return pilot_holes
 
     def build_clamshell_brackets(self, wing_geom, raw_wing_solid, recessed_wing_solid):
         """Builds the removable top and bottom clamshell brackets contoured to the wing.
@@ -271,11 +265,11 @@ class MotorMount:
         x_esc_start = x_face + self.front_bulkhead_t
         x_esc_end = self._esc_end_x(x_face)
 
-        # 1. Outer envelope matching the displaced wing skin + front nose fairing
+        # 1. Outer envelope: straight rounded-rect motor nose + exact wing skin over the saddle
         shell = self._build_skin_conforming_outer_solid(
             wing_geom, raw_wing_solid, x_face, y_c, z_c, le
         )
-        shell, pilot_holes = self._add_motor_bosses(shell, x_face, y_c, z_c)
+        pilot_holes = self._make_pilot_holes(x_face, y_c, z_c)
 
         # 2. Mate inner face to the recessed wing and central bay cutout
         shell = shell.cut(recessed_wing_solid)
