@@ -1,119 +1,173 @@
-"""Servo mounting pocket generator and preset specifications."""
-import math
+"""Top-surface side-mounted clip-in servo pocket generator."""
 import FreeCAD as App
 import Part
 
-# Specifications for common micro-servos (mm)
+# Specifications for side-mounted micro-servos (mm)
 SERVO_PRESETS = {
-    # Hee Wing T1 Ranger stock digital micro servo (FX-5g / FX-7g)
+    # Hee Wing T1S Ranger stock digital micro servo (FX-5g / FX-7g), mounted on its side
     "HeeWing_FX5G": {
-        "pocket_length": 23.0,     # Length along X (chordwise)
-        "pocket_width": 12.5,      # Width along Y (spanwise)
-        "pocket_depth": 14.0,      # Pocket depth into wing underside
-        "flange_length": 32.0,     # Flange ear length along X
-        "flange_width": 12.5,      # Flange ear width
-        "flange_depth": 4.0,       # Flange ear step depth
-        "arm_slot_length": 24.0,   # Linkage arm slot extending aft toward aileron
-        "arm_slot_width": 3.5,     # Slot width for servo horn
-        "arm_slot_depth": 10.0,    # Slot depth
-        "wire_slot_width": 14.0,   # Flat wire/connector passage width (chordwise)
-        "wire_slot_height": 5.0,   # Flat wire/connector passage height (thickness)
+        "body_span_y": 21.0,       # 20.6 mm body + 0.4 mm clearance along span (Y)
+        "body_chord_x": 20.4,      # 20.0 mm body + 0.4 mm clearance along chord (X)
+        "body_depth_z": 8.5,       # 8.2 mm thickness + 0.3 mm clearance into top skin (Z)
+        "boss_outboard_y": 4.5,    # 4.0 mm round output boss + 0.5 mm clearance (+Y)
+        "boss_dia": 11.0,          # Output gear boss diameter clearance
+        "arm_slot_length": 22.0,   # Aft linkage slot toward aileron (+X)
+        "arm_slot_width": 4.0,     # Linkage slot width (Y)
+        "arm_slot_depth": 8.0,     # Linkage slot depth (Z)
+        "snap_overhang": 0.7,      # Printed snap-fit tab overhang (mm)
+        "snap_width": 4.5,         # Snap tab width along Y (mm)
+        "snap_thickness": 1.2,     # Snap tab thickness in Z (mm)
+        "wire_width": 2.4,         # Servo ribbon wire width (mm)
+        "wire_thickness": 0.6,     # Servo ribbon wire thickness (mm)
+        "max_wire_length": 200.0,  # Total cable length budget (mm)
     },
     "SG90": {
-        "pocket_length": 23.5,
-        "pocket_width": 12.5,
-        "pocket_depth": 16.0,
-        "flange_length": 32.5,
-        "flange_width": 12.5,
-        "flange_depth": 4.0,
-        "arm_slot_length": 24.0,
-        "arm_slot_width": 3.5,
-        "arm_slot_depth": 10.0,
-        "wire_slot_width": 14.0,
-        "wire_slot_height": 5.0,
-    }
+        "body_span_y": 23.0,
+        "body_chord_x": 22.5,
+        "body_depth_z": 12.5,
+        "boss_outboard_y": 4.5,
+        "boss_dia": 12.0,
+        "arm_slot_length": 22.0,
+        "arm_slot_width": 4.0,
+        "arm_slot_depth": 9.0,
+        "snap_overhang": 0.7,
+        "snap_width": 4.5,
+        "snap_thickness": 1.2,
+        "wire_width": 2.6,
+        "wire_thickness": 0.8,
+        "max_wire_length": 200.0,
+    },
 }
 
+
 class ServoPocket:
-    """Generates cutter solids for servo pocket, flat wire conduit, and linkage slot."""
+    """Generates cutters and snap-fit tabs for a top-surface side-mounted servo."""
 
     def __init__(self, servo_type="HeeWing_FX5G"):
         if servo_type not in SERVO_PRESETS:
             servo_type = "HeeWing_FX5G"
         self.specs = SERVO_PRESETS[servo_type]
 
-    def create_cutter(self, center_pos, wing_bottom_z, wing_geom):
-        """Creates a boolean cutter solid for the servo bay, flat wire channel, and horn slot.
-        
+    def create_geometry(self, center_x, center_y, wing_geom):
+        """Creates pocket cutter, snap-fit tab solid, and bottom feed-through coordinates.
+
         Args:
-            center_pos: App.Vector(x, y, z) servo center location
-            wing_bottom_z: Bottom skin Z level at the servo location
-            wing_geom: WingGeometry instance for station and dihedral tracking
-            
+            center_x: Chordwise center X (mm).
+            center_y: Spanwise center Y (mm).
+            wing_geom: WingGeometry instance.
+
         Returns:
-            Part.Shape: Combined cutter shape to subtract from the main wing.
+            tuple: (cutter_solid, snap_tabs_solid, feed_xy, info_dict)
         """
-        l = self.specs["pocket_length"]
-        w = self.specs["pocket_width"]
-        d = self.specs["pocket_depth"]
+        sy = self.specs["body_span_y"]
+        cx = self.specs["body_chord_x"]
+        dz = self.specs["body_depth_z"]
 
-        # 1. Main servo body pocket from bottom skin upward into wing
-        z_start = wing_bottom_z - 2.0
+        # Sample top and bottom Z across the servo footprint
+        z_tops = []
+        z_bots = []
+        for dx in (-cx / 2.0, 0.0, cx / 2.0):
+            for dy in (-sy / 2.0, 0.0, sy / 2.0):
+                zb, zt = wing_geom.get_surface_z(center_x + dx, center_y + dy)
+                z_bots.append(zb)
+                z_tops.append(zt)
+
+        z_top_max = max(z_tops)
+        z_top_min = min(z_tops)
+        z_bot_min = min(z_bots)
+
+        pocket_floor_z = z_top_min - dz
+        pocket_top_z = z_top_max + 2.0
+
+        # 1. Main rectangular body pocket cut downward from top surface (+Z)
         body_box = Part.makeBox(
-            l, w, d + 2.0,
-            App.Vector(center_pos.x - (l / 2.0), center_pos.y - (w / 2.0), z_start)
+            cx,
+            sy,
+            pocket_top_z - pocket_floor_z,
+            App.Vector(center_x - cx / 2.0, center_y - sy / 2.0, pocket_floor_z),
         )
 
-        # 2. Mounting flange ears
-        fl_len = self.specs["flange_length"]
-        fl_w = self.specs["flange_width"]
-        fl_d = self.specs["flange_depth"]
-        flange_box = Part.makeBox(
-            fl_len, fl_w, fl_d + 2.0,
-            App.Vector(center_pos.x - (fl_len / 2.0), center_pos.y - (fl_w / 2.0), z_start)
+        # 2. Outboard (+Y) relief for the 4 mm round output boss (away from fuselage)
+        boss_y = self.specs["boss_outboard_y"]
+        boss_dia = self.specs["boss_dia"]
+        boss_box = Part.makeBox(
+            boss_dia,
+            boss_y + 1.0,
+            pocket_top_z - pocket_floor_z,
+            App.Vector(
+                center_x - boss_dia / 2.0,
+                center_y + sy / 2.0 - 1.0,
+                pocket_floor_z,
+            ),
         )
-        pocket = body_box.fuse(flange_box)
+        cutter = body_box.fuse(boss_box)
 
-        # 3. Servo horn linkage slot extending aft toward the aileron
+        # 3. Aft linkage horn clearance slot on the +Y output side toward the aileron
         hsl = self.specs["arm_slot_length"]
         hsw = self.specs["arm_slot_width"]
         hsd = self.specs["arm_slot_depth"]
+        arm_z_bot = z_top_min - hsd
         arm_slot = Part.makeBox(
-            hsl, hsw, hsd + 2.0,
-            App.Vector(center_pos.x, center_pos.y - (hsw / 2.0), z_start)
+            hsl,
+            hsw,
+            pocket_top_z - arm_z_bot,
+            App.Vector(
+                center_x,
+                center_y + sy / 2.0 + 0.5,
+                arm_z_bot,
+            ),
         )
-        pocket = pocket.fuse(arm_slot)
+        cutter = cutter.fuse(arm_slot)
 
-        # 4. Flat rectangular wire and connector conduit running to the wing root
-        # Fits standard 3-pin servo connectors (typically 8mm x 2.5mm or 14mm x 4mm)
-        sw = self.specs["wire_slot_width"]
-        sh = self.specs["wire_slot_height"]
+        # 4. Vertical ribbon-wire feed-through hole at inboard corner down to bottom surface
+        feed_x = center_x - cx / 2.0 + 2.5
+        feed_y = center_y - sy / 2.0 + 2.5
+        feed_w = max(3.4, self.specs["wire_width"] + 1.0)
+        feed_t = max(2.0, self.specs["wire_thickness"] + 1.4)
+        feed_hole = Part.makeBox(
+            feed_w,
+            feed_t,
+            (pocket_floor_z + 1.0) - (z_bot_min - 2.0),
+            App.Vector(feed_x - feed_w / 2.0, feed_y - feed_t / 2.0, z_bot_min - 2.0),
+        )
+        cutter = cutter.fuse(feed_hole)
 
-        # Servo station cross-section
-        w1 = Part.makePolygon([
-            App.Vector(center_pos.x - sw / 2.0, center_pos.y, wing_bottom_z + 2.0),
-            App.Vector(center_pos.x + sw / 2.0, center_pos.y, wing_bottom_z + 2.0),
-            App.Vector(center_pos.x + sw / 2.0, center_pos.y, wing_bottom_z + 2.0 + sh),
-            App.Vector(center_pos.x - sw / 2.0, center_pos.y, wing_bottom_z + 2.0 + sh),
-            App.Vector(center_pos.x - sw / 2.0, center_pos.y, wing_bottom_z + 2.0)
-        ])
+        # 5. Printed snap-fit retention tabs on fore (-X) and aft (+X) rims
+        overhang = self.specs["snap_overhang"]
+        tab_w = self.specs["snap_width"]
+        tab_t = self.specs["snap_thickness"]
+        embed = 1.5
 
-        # Wing root cross-section (Y = -5mm past root rib)
-        y_root = -5.0
-        c_root = wing_geom.get_chord_at(0.0)
-        le_root = wing_geom.get_le_position(0.0)
-        x_root = le_root.x + (c_root * 0.50) # Maintain ~50% chord position
-        z_root = wing_bottom_z - (center_pos.y * math.tan(wing_geom.dihedral_rad))
+        _, z_fore = wing_geom.get_surface_z(center_x - cx / 2.0, center_y)
+        _, z_aft = wing_geom.get_surface_z(center_x + cx / 2.0, center_y)
 
-        w2 = Part.makePolygon([
-            App.Vector(x_root - sw / 2.0, y_root, z_root + 2.0),
-            App.Vector(x_root + sw / 2.0, y_root, z_root + 2.0),
-            App.Vector(x_root + sw / 2.0, y_root, z_root + 2.0 + sh),
-            App.Vector(x_root - sw / 2.0, y_root, z_root + 2.0 + sh),
-            App.Vector(x_root - sw / 2.0, y_root, z_root + 2.0)
-        ])
+        fore_tab = Part.makeBox(
+            embed + overhang,
+            tab_w,
+            tab_t,
+            App.Vector(
+                center_x - cx / 2.0 - embed,
+                center_y - tab_w / 2.0,
+                z_fore - tab_t - 0.2,
+            ),
+        )
+        aft_tab = Part.makeBox(
+            embed + overhang,
+            tab_w,
+            tab_t,
+            App.Vector(
+                center_x + cx / 2.0 - overhang,
+                center_y - tab_w / 2.0,
+                z_aft - tab_t - 0.2,
+            ),
+        )
+        snap_tabs = fore_tab.fuse(aft_tab)
 
-        flat_conduit = Part.makeLoft([Part.Wire(w1), Part.Wire(w2)], True, True)
-        pocket = pocket.fuse(flat_conduit)
-
-        return pocket
+        info = {
+            "x_center_mm": round(center_x, 2),
+            "y_center_mm": round(center_y, 2),
+            "feed_x_mm": round(feed_x, 2),
+            "feed_y_mm": round(feed_y, 2),
+            "depth_mm": round(dz, 2),
+        }
+        return cutter, snap_tabs, (feed_x, feed_y), info
